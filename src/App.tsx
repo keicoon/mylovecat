@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ChangeEvent } from "react";
 import {
   Activity,
@@ -24,6 +24,7 @@ import {
   RotateCcw,
   Save,
   Settings,
+  ShieldCheck,
   Sun,
   Trash2,
   Upload,
@@ -44,24 +45,28 @@ import type {
   RelativeValue,
   ThemeMode,
 } from "./types";
-import { recordFieldLabels, recordFieldOrder } from "./types";
+import { recordFieldLabels } from "./types";
+import { advancedRecordFieldOrder, coreRecordFieldOrder } from "./types";
 import {
   addDays,
   buildMonthlyExport,
   compactItems,
   deleteCat,
   downloadJson,
-  filledCount,
+  emptyData,
+  filledCoreCount,
   findRecord,
   formatDate,
   loadData,
   makeId,
   mergeMonthlyExport,
-  missingFields,
+  missingCoreFields,
   monthKey,
   monthStartWeekday,
   parseDate,
   readImageAsset,
+  estimateStorageUsage,
+  requestPersistentStorage,
   saveData,
   sortRecordsDesc,
   todayString,
@@ -120,15 +125,37 @@ function initialTab(): TabId {
 }
 
 export default function App() {
-  const [data, setData] = useState<AppData>(() => loadData());
-  const [selectedCatId, setSelectedCatId] = useState(() => data.cats[0]?.id ?? "");
+  const [data, setData] = useState<AppData>(() => emptyData);
+  const [storageReady, setStorageReady] = useState(false);
+  const [selectedCatId, setSelectedCatId] = useState("");
   const [selectedDate, setSelectedDate] = useState(() => todayString());
   const [calendarMonth, setCalendarMonth] = useState(() => monthKey(todayString()));
   const [activeTab, setActiveTab] = useState<TabId>(() => initialTab());
   const [toast, setToast] = useState<ToastState>(null);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const autoSelectedTodayRef = useRef(false);
 
-  useEffect(() => saveData(data), [data]);
+  useEffect(() => {
+    let cancelled = false;
+
+    loadData()
+      .then((storedData) => {
+        if (cancelled) return;
+        setData(storedData);
+        setSelectedCatId(storedData.cats[0]?.id ?? "");
+      })
+      .finally(() => {
+        if (!cancelled) setStorageReady(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (storageReady) void saveData(data);
+  }, [data, storageReady]);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -155,6 +182,16 @@ export default function App() {
   }, [data.cats, selectedCatId]);
 
   useEffect(() => setCalendarMonth(monthKey(selectedDate)), [selectedDate]);
+
+  useEffect(() => {
+    if (!storageReady || autoSelectedTodayRef.current || !data.cats.length || activeTab !== "today") return;
+    const today = todayString();
+    if (selectedDate !== today) return;
+
+    const firstMissingCat = data.cats.find((cat) => !findRecord(data.records, cat.id, today));
+    setSelectedCatId((firstMissingCat ?? data.cats[0]).id);
+    autoSelectedTodayRef.current = true;
+  }, [activeTab, data.cats, data.records, selectedDate, storageReady]);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -283,15 +320,20 @@ export default function App() {
           onInstall={openInstallPrompt}
         />
 
-        {data.cats.length === 0 ? (
+        {!storageReady ? (
+          <LoadingView />
+        ) : data.cats.length === 0 ? (
           <SetupView onAddCat={addCat} />
         ) : selectedCat ? (
           <>
             {activeTab === "today" && (
               <TodayView
                 cat={selectedCat}
+                cats={data.cats}
                 data={data}
                 selectedDate={selectedDate}
+                selectedCatId={selectedCatId}
+                onSelectCat={setSelectedCatId}
                 onSaveData={setData}
                 onToast={setToast}
               />
@@ -424,16 +466,31 @@ function SetupView({ onAddCat }: { onAddCat: (cat: Omit<CatProfile, "id">) => vo
   );
 }
 
+function LoadingView() {
+  return (
+    <section className="panel loading-panel">
+      <div className="loading-mark" />
+      <h2>기록을 불러오는 중</h2>
+    </section>
+  );
+}
+
 function TodayView({
   cat,
+  cats,
   data,
   selectedDate,
+  selectedCatId,
+  onSelectCat,
   onSaveData,
   onToast,
 }: {
   cat: CatProfile;
+  cats: CatProfile[];
   data: AppData;
   selectedDate: string;
+  selectedCatId: string;
+  onSelectCat: (catId: string) => void;
   onSaveData: (updater: (current: AppData) => AppData) => void;
   onToast: (toast: ToastState) => void;
 }) {
@@ -446,8 +503,8 @@ function TodayView({
   }, [cat.id, currentRecord?.updatedAt, selectedDate]);
 
   const compacted = compactItems(draft);
-  const missing = missingFields(compacted);
-  const completion = Math.round((filledCount(compacted) / recordFieldOrder.length) * 100);
+  const missing = missingCoreFields(compacted);
+  const completion = Math.round((filledCoreCount(compacted) / coreRecordFieldOrder.length) * 100);
   const attention = getAttentionItems({ id: "", catId: cat.id, date: selectedDate, createdAt: "", updatedAt: "", items: compacted });
 
   const setItem = <K extends keyof RecordItems>(key: K, value: RecordItems[K] | undefined) => {
@@ -489,7 +546,7 @@ function TodayView({
       records: upsertRecord(current.records, record),
     }));
 
-    const missingNames = missingFields(items).map((field) => recordFieldLabels[field]);
+    const missingNames = missingCoreFields(items).map((field) => recordFieldLabels[field]);
     if (missingNames.length) {
       const preview = missingNames.slice(0, 4).join(", ");
       onToast({
@@ -532,6 +589,13 @@ function TodayView({
 
   return (
     <section className="today-layout">
+      <DailyOverview
+        cats={cats}
+        records={data.records}
+        selectedDate={selectedDate}
+        selectedCatId={selectedCatId}
+        onSelectCat={onSelectCat}
+      />
       <div className="panel record-panel">
         <div className="panel-head">
           <div>
@@ -554,78 +618,25 @@ function TodayView({
           </div>
         </div>
 
-        <div className="field-grid">
-          <FieldBlock icon={<Utensils size={19} />} title="식욕">
-            <Segmented value={draft.appetite} options={relativeOptions} onChange={(value) => setItem("appetite", value)} />
-          </FieldBlock>
-          <FieldBlock icon={<Droplets size={19} />} title="물 섭취">
-            <Segmented
-              value={draft.waterIntake}
-              options={relativeOptions}
-              onChange={(value) => setItem("waterIntake", value)}
-            />
-          </FieldBlock>
-          <FieldBlock icon={<PawPrint size={19} />} title="배변">
-            <Segmented value={draft.stoolCount} options={countOptions} onChange={(value) => setItem("stoolCount", value)} />
-          </FieldBlock>
-          <FieldBlock icon={<Droplets size={19} />} title="소변">
-            <Segmented value={draft.urineCount} options={countOptions} onChange={(value) => setItem("urineCount", value)} />
-          </FieldBlock>
-          <FieldBlock icon={<CircleAlert size={19} />} title="구토">
-            <Segmented
-              value={draft.vomit}
-              options={[
-                { value: false, label: "없음" },
-                { value: true, label: "있음" },
-              ]}
-              onChange={(value) => setItem("vomit", value)}
-            />
-          </FieldBlock>
-          <FieldBlock icon={<Activity size={19} />} title="활동량">
-            <Segmented value={draft.activity} options={relativeOptions} onChange={(value) => setItem("activity", value)} />
-          </FieldBlock>
-          <FieldBlock icon={<Weight size={19} />} title="체중">
-            <div className="weight-input-wrap">
-              <input
-                className="weight-input"
-                inputMode="decimal"
-                min="0"
-                max="30"
-                step="0.01"
-                type="number"
-                placeholder="kg"
-                value={draft.weightKg ?? ""}
-                onChange={(event) =>
-                  setItem("weightKg", event.target.value === "" ? undefined : Number(event.target.value))
-                }
-                aria-label="체중"
-              />
-              <button className="micro-button" onClick={() => setItem("weightKg", undefined)}>
-                비움
-              </button>
-            </div>
-          </FieldBlock>
-          <FieldBlock icon={<Pill size={19} />} title="약 복용">
-            <Segmented
-              value={draft.medicationTaken}
-              options={[
-                { value: false, label: "안 먹음" },
-                { value: true, label: "먹음" },
-              ]}
-              onChange={(value) => setItem("medicationTaken", value)}
-            />
-          </FieldBlock>
-          <FieldBlock icon={<Utensils size={19} />} title="사료/간식">
-            <Segmented
-              value={draft.foodSnackAmount}
-              options={relativeOptions}
-              onChange={(value) => setItem("foodSnackAmount", value)}
-            />
-          </FieldBlock>
-          <FieldBlock icon={<HeartPulse size={19} />} title="컨디션">
-            <Segmented value={draft.condition} options={conditionOptions} onChange={(value) => setItem("condition", value)} />
-          </FieldBlock>
+        <MobileStepInput items={draft} onSetItem={setItem} />
+
+        <div className="field-grid desktop-fields">
+          {coreRecordFieldOrder.map((field) => (
+            <RecordInputField field={field} items={draft} key={field} onSetItem={setItem} />
+          ))}
         </div>
+
+        <details className="advanced-panel">
+          <summary>
+            <span>확장 기록</span>
+            <small>구토, 체중, 약 복용</small>
+          </summary>
+          <div className="field-grid">
+            {advancedRecordFieldOrder.map((field) => (
+              <RecordInputField field={field} items={draft} key={field} onSetItem={setItem} />
+            ))}
+          </div>
+        </details>
 
         <div className="detail-panel">
           <div className="detail-head">
@@ -723,7 +734,7 @@ function CalendarView({
 
           const record = recordMap.get(cell.date);
           const alerts = record ? getAttentionItems(record) : [];
-          const complete = record ? filledCount(record.items) : 0;
+          const complete = record ? filledCoreCount(record.items) : 0;
 
           return (
             <button
@@ -740,7 +751,7 @@ function CalendarView({
                     ? `주의 ${alerts.length}`
                     : record.items.note || record.items.photos?.length
                       ? "특이사항"
-                      : `${complete}/${recordFieldOrder.length}`}
+                      : `${complete}/${coreRecordFieldOrder.length}`}
                 </small>
               ) : null}
             </button>
@@ -869,8 +880,22 @@ function SettingsView({
   onInstall: () => void;
 }) {
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [storageText, setStorageText] = useState("계산 전");
   const editingCat = data.cats.find((cat) => cat.id === editingCatId);
   const exportMonth = monthKey(selectedDate);
+
+  useEffect(() => {
+    estimateStorageUsage()
+      .then((estimate) => {
+        if (!estimate?.usage) {
+          setStorageText("확인 불가");
+          return;
+        }
+
+        setStorageText(`${formatBytes(estimate.usage)} 사용 중`);
+      })
+      .catch(() => setStorageText("확인 불가"));
+  }, [data]);
 
   const handleExport = () => {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "local";
@@ -905,6 +930,20 @@ function SettingsView({
     onToast({
       tone: permission === "granted" ? "success" : "warning",
       message: permission === "granted" ? "알림 권한을 허용했어요." : "알림 권한이 필요해요.",
+    });
+  };
+
+  const protectStorage = async () => {
+    const persisted = await requestPersistentStorage();
+
+    if (persisted === undefined) {
+      onToast({ tone: "warning", message: "이 브라우저는 저장소 보호 요청을 지원하지 않아요." });
+      return;
+    }
+
+    onToast({
+      tone: persisted ? "success" : "warning",
+      message: persisted ? "브라우저 저장소 보호가 적용됐어요." : "브라우저가 저장소 보호 요청을 거부했어요.",
     });
   };
 
@@ -1012,7 +1051,15 @@ function SettingsView({
         <div className="panel-head compact">
           <h2>데이터</h2>
         </div>
+        <div className="storage-meter">
+          <span>로컬 저장소</span>
+          <strong>{storageText}</strong>
+        </div>
         <div className="button-stack">
+          <button className="soft-button" onClick={protectStorage}>
+            <ShieldCheck size={18} aria-hidden="true" />
+            저장소 보호
+          </button>
           <button className="soft-button" onClick={handleExport}>
             <Download size={18} aria-hidden="true" />
             {exportMonth} 내보내기
@@ -1057,7 +1104,7 @@ function ContextPane({ cat, selectedDate, records }: { cat: CatProfile; selected
         </div>
         {todayRecord ? (
           <div className="status-list">
-            <StatusLine label="입력" value={`${filledCount(todayRecord.items)}/${recordFieldOrder.length}`} />
+            <StatusLine label="기본 입력" value={`${filledCoreCount(todayRecord.items)}/${coreRecordFieldOrder.length}`} />
             <StatusLine label="특이점" value={alerts.length ? `${alerts.length}개` : "없음"} tone={alerts.length ? "warning" : "calm"} />
             <StatusLine label="체중" value={todayRecord.items.weightKg ? `${todayRecord.items.weightKg}kg` : "-"} />
             <StatusLine label="메모" value={todayRecord.items.note ? "있음" : "-"} />
@@ -1085,6 +1132,50 @@ function ContextPane({ cat, selectedDate, records }: { cat: CatProfile; selected
         </div>
       </div>
     </aside>
+  );
+}
+
+function DailyOverview({
+  cats,
+  records,
+  selectedDate,
+  selectedCatId,
+  onSelectCat,
+}: {
+  cats: CatProfile[];
+  records: DailyRecord[];
+  selectedDate: string;
+  selectedCatId: string;
+  onSelectCat: (catId: string) => void;
+}) {
+  return (
+    <div className="daily-overview">
+      {cats.map((cat) => {
+        const record = findRecord(records, cat.id, selectedDate);
+        const alerts = record ? getAttentionItems(record) : [];
+        const coreCount = record ? filledCoreCount(record.items) : 0;
+
+        return (
+          <button
+            className={`overview-card ${selectedCatId === cat.id ? "is-active" : ""} ${!record ? "is-empty" : ""}`}
+            key={cat.id}
+            onClick={() => onSelectCat(cat.id)}
+          >
+            <CatAvatar cat={cat} size="large" />
+            <span>
+              <strong>{cat.name}</strong>
+              <small>
+                {!record
+                  ? "오늘 기록 필요"
+                  : alerts.length
+                    ? `주의 ${alerts.length}개`
+                    : `기본 ${coreCount}/${coreRecordFieldOrder.length}`}
+              </small>
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1250,6 +1341,170 @@ function FieldBlock({ icon, title, children }: { icon: React.ReactNode; title: s
       </div>
       {children}
     </div>
+  );
+}
+
+type SetRecordItem = <K extends keyof RecordItems>(key: K, value: RecordItems[K] | undefined) => void;
+
+function MobileStepInput({ items, onSetItem }: { items: RecordItems; onSetItem: SetRecordItem }) {
+  const [step, setStep] = useState(0);
+  const field = coreRecordFieldOrder[step];
+  const value = items[field];
+
+  const setAndAdvance: SetRecordItem = (key, nextValue) => {
+    onSetItem(key, nextValue);
+    if (step < coreRecordFieldOrder.length - 1) {
+      window.setTimeout(() => setStep((current) => Math.min(current + 1, coreRecordFieldOrder.length - 1)), 120);
+    }
+  };
+
+  return (
+    <div className="mobile-step-input">
+      <div className="step-head">
+        <div>
+          <span>
+            {step + 1}/{coreRecordFieldOrder.length}
+          </span>
+          <strong>{recordFieldLabels[field]}</strong>
+        </div>
+        <small>{value === undefined ? "미입력" : "입력됨"}</small>
+      </div>
+      <RecordInputField field={field} items={items} onSetItem={setAndAdvance} />
+      <div className="step-actions">
+        <button className="soft-button" onClick={() => setStep((current) => Math.max(0, current - 1))} disabled={step === 0}>
+          이전
+        </button>
+        <button
+          className="soft-button"
+          onClick={() => setStep((current) => Math.min(coreRecordFieldOrder.length - 1, current + 1))}
+          disabled={step === coreRecordFieldOrder.length - 1}
+        >
+          다음
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RecordInputField({
+  field,
+  items,
+  onSetItem,
+}: {
+  field: RecordField;
+  items: RecordItems;
+  onSetItem: SetRecordItem;
+}) {
+  if (field === "appetite") {
+    return (
+      <FieldBlock icon={<Utensils size={19} />} title="식욕">
+        <Segmented value={items.appetite} options={relativeOptions} onChange={(value) => onSetItem("appetite", value)} />
+      </FieldBlock>
+    );
+  }
+
+  if (field === "waterIntake") {
+    return (
+      <FieldBlock icon={<Droplets size={19} />} title="물 섭취">
+        <Segmented value={items.waterIntake} options={relativeOptions} onChange={(value) => onSetItem("waterIntake", value)} />
+      </FieldBlock>
+    );
+  }
+
+  if (field === "stoolCount") {
+    return (
+      <FieldBlock icon={<PawPrint size={19} />} title="배변">
+        <Segmented value={items.stoolCount} options={countOptions} onChange={(value) => onSetItem("stoolCount", value)} />
+      </FieldBlock>
+    );
+  }
+
+  if (field === "urineCount") {
+    return (
+      <FieldBlock icon={<Droplets size={19} />} title="소변">
+        <Segmented value={items.urineCount} options={countOptions} onChange={(value) => onSetItem("urineCount", value)} />
+      </FieldBlock>
+    );
+  }
+
+  if (field === "activity") {
+    return (
+      <FieldBlock icon={<Activity size={19} />} title="활동량">
+        <Segmented value={items.activity} options={relativeOptions} onChange={(value) => onSetItem("activity", value)} />
+      </FieldBlock>
+    );
+  }
+
+  if (field === "foodSnackAmount") {
+    return (
+      <FieldBlock icon={<Utensils size={19} />} title="사료/간식">
+        <Segmented
+          value={items.foodSnackAmount}
+          options={relativeOptions}
+          onChange={(value) => onSetItem("foodSnackAmount", value)}
+        />
+      </FieldBlock>
+    );
+  }
+
+  if (field === "condition") {
+    return (
+      <FieldBlock icon={<HeartPulse size={19} />} title="컨디션">
+        <Segmented value={items.condition} options={conditionOptions} onChange={(value) => onSetItem("condition", value)} />
+      </FieldBlock>
+    );
+  }
+
+  if (field === "vomit") {
+    return (
+      <FieldBlock icon={<CircleAlert size={19} />} title="구토">
+        <Segmented
+          value={items.vomit}
+          options={[
+            { value: false, label: "없음" },
+            { value: true, label: "있음" },
+          ]}
+          onChange={(value) => onSetItem("vomit", value)}
+        />
+      </FieldBlock>
+    );
+  }
+
+  if (field === "weightKg") {
+    return (
+      <FieldBlock icon={<Weight size={19} />} title="체중">
+        <div className="weight-input-wrap">
+          <input
+            className="weight-input"
+            inputMode="decimal"
+            min="0"
+            max="30"
+            step="0.01"
+            type="number"
+            placeholder="kg"
+            value={items.weightKg ?? ""}
+            onChange={(event) => onSetItem("weightKg", event.target.value === "" ? undefined : Number(event.target.value))}
+            aria-label="체중"
+          />
+          <button className="micro-button" onClick={() => onSetItem("weightKg", undefined)}>
+            비움
+          </button>
+        </div>
+      </FieldBlock>
+    );
+  }
+
+  return (
+    <FieldBlock icon={<Pill size={19} />} title="약 복용">
+      <Segmented
+        value={items.medicationTaken}
+        options={[
+          { value: false, label: "안 먹음" },
+          { value: true, label: "먹음" },
+        ]}
+        onChange={(value) => onSetItem("medicationTaken", value)}
+      />
+    </FieldBlock>
   );
 }
 
@@ -1440,4 +1695,11 @@ function formatSex(value: CatSex) {
   if (value === "female") return "암컷";
   if (value === "male") return "수컷";
   return "모름";
+}
+
+function formatBytes(value: number) {
+  if (value < 1024) return `${value}B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)}KB`;
+  if (value < 1024 * 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)}MB`;
+  return `${(value / 1024 / 1024 / 1024).toFixed(1)}GB`;
 }

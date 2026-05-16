@@ -90,10 +90,22 @@ export const recordFieldOrder: RecordField[] = [
   "waterIntake",
   "stoolCount",
   "urineCount",
-  "vomit",
   "activity",
+  "foodSnackAmount",
+  "condition",
+  "vomit",
   "weightKg",
   "medicationTaken",
+];
+
+export const coreRecordFieldOrder: RecordField[] = [
+  "appetite",
+  "waterIntake",
+  "stoolCount",
+  "urineCount",
+  "activity",
   "foodSnackAmount",
   "condition",
 ];
+
+export const advancedRecordFieldOrder: RecordField[] = ["vomit", "weightKg", "medicationTaken"];

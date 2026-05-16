@@ -364,8 +364,83 @@ button:disabled {
   gap: 18px;
 }
 
+.daily-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+  max-width: 1040px;
+}
+
+.overview-card {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(223, 230, 232, 0.82);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--ink);
+  padding: 10px;
+  text-align: left;
+  box-shadow: var(--shadow);
+}
+
+.overview-card.is-active {
+  border-color: rgba(31, 138, 118, 0.42);
+  outline: 3px solid rgba(31, 138, 118, 0.14);
+}
+
+.overview-card.is-empty {
+  border-color: rgba(245, 182, 64, 0.45);
+}
+
+.overview-card span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.overview-card strong,
+.overview-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-card small {
+  color: var(--muted);
+  font-weight: 780;
+}
+
 .record-panel {
   max-width: 1040px;
+}
+
+.loading-panel {
+  display: grid;
+  min-height: 280px;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+}
+
+.loading-panel h2 {
+  font-size: 18px;
+}
+
+.loading-mark {
+  width: 42px;
+  height: 42px;
+  border: 4px solid var(--surface-2);
+  border-top-color: var(--green);
+  border-radius: 999px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .completion {
@@ -427,6 +502,50 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.mobile-step-input {
+  display: none;
+}
+
+.advanced-panel {
+  display: grid;
+  margin-top: 12px;
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  background: rgba(247, 248, 251, 0.72);
+  padding: 0;
+}
+
+.advanced-panel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  padding: 14px;
+}
+
+.advanced-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-panel summary span {
+  color: var(--ink);
+  font-weight: 860;
+}
+
+.advanced-panel summary small {
+  color: var(--muted);
+  font-weight: 740;
+}
+
+.advanced-panel[open] summary {
+  border-bottom: 1px solid var(--soft-line);
+}
+
+.advanced-panel .field-grid {
+  padding: 12px;
 }
 
 .detail-panel {
@@ -979,6 +1098,27 @@ th {
   padding: 8px 10px;
 }
 
+.storage-meter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 10px;
+}
+
+.storage-meter span {
+  color: var(--muted);
+  font-weight: 780;
+}
+
+.storage-meter strong {
+  color: var(--ink);
+}
+
 .setting-line label {
   color: var(--muted);
   font-weight: 820;
@@ -1122,6 +1262,7 @@ th {
 
 :root[data-theme="dark"] .panel,
 :root[data-theme="dark"] .setup-grid,
+:root[data-theme="dark"] .overview-card,
 :root[data-theme="dark"] .pet-card,
 :root[data-theme="dark"] .cat-row,
 :root[data-theme="dark"] .mini-record,
@@ -1138,7 +1279,9 @@ th {
 }
 
 :root[data-theme="dark"] .field-block,
+:root[data-theme="dark"] .mobile-step-input,
 :root[data-theme="dark"] .detail-panel,
+:root[data-theme="dark"] .advanced-panel,
 :root[data-theme="dark"] .avatar-picker,
 :root[data-theme="dark"] .kpi {
   background: rgba(22, 33, 31, 0.68);
@@ -1243,6 +1386,59 @@ th {
   .settings-grid,
   .setup-grid {
     grid-template-columns: 1fr;
+  }
+
+  .daily-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .desktop-fields {
+    display: none;
+  }
+
+  .mobile-step-input {
+    display: grid;
+    gap: 10px;
+    border: 1px solid var(--soft-line);
+    border-radius: 8px;
+    background: rgba(247, 248, 251, 0.72);
+    padding: 12px;
+  }
+
+  .step-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .step-head div {
+    display: grid;
+    gap: 4px;
+  }
+
+  .step-head span,
+  .step-head small {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 820;
+  }
+
+  .step-head strong {
+    color: var(--ink);
+    font-size: 18px;
+  }
+
+  .step-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mobile-step-input .field-block {
+    padding: 0;
+    border: 0;
+    background: transparent;
   }
 
   .span-2 {

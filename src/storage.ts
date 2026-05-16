@@ -8,9 +8,13 @@ import type {
   RecordItems,
   ThemeMode,
 } from "./types";
-import { recordFieldOrder } from "./types";
+import { coreRecordFieldOrder, recordFieldOrder } from "./types";
 
-const STORAGE_KEY = "mylovecat:data:v1";
+const LOCAL_STORAGE_KEY = "mylovecat:data:v1";
+const DB_NAME = "mylovecat";
+const DB_VERSION = 1;
+const STORE_NAME = "app";
+const APP_DATA_KEY = "state:v1";
 
 export const emptyData: AppData = {
   cats: [],
@@ -21,33 +25,110 @@ export const emptyData: AppData = {
   },
 };
 
-export function loadData(): AppData {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return emptyData;
+export async function loadData(): Promise<AppData> {
+  const local = loadLocalData();
+
+  if (!("indexedDB" in window)) {
+    return local.data;
+  }
 
   try {
-    const parsed = JSON.parse(raw) as Partial<AppData>;
+    const db = await openDatabase();
+    const stored = await idbGet<AppData>(db, APP_DATA_KEY);
 
-    return {
-      cats: Array.isArray(parsed.cats) ? parsed.cats : [],
-      records: Array.isArray(parsed.records) ? parsed.records : [],
-      settings: {
-        reminderTime: parsed.settings?.reminderTime ?? "21:00",
-        theme: isThemeMode(parsed.settings?.theme) ? parsed.settings.theme : "system",
-        lastReminderDate: parsed.settings?.lastReminderDate,
-      },
-    };
-  } catch {
+    if (stored) {
+      return normalizeData(stored);
+    }
+
+    if (local.exists) {
+      await idbSet(db, APP_DATA_KEY, local.data);
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      return local.data;
+    }
+
     return emptyData;
+  } catch {
+    return local.data;
   }
 }
 
-export function saveData(data: AppData) {
+export async function saveData(data: AppData) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    if ("indexedDB" in window) {
+      const db = await openDatabase();
+      await idbSet(db, APP_DATA_KEY, data);
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      return;
+    }
+
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
   } catch (error) {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+    } catch {
+      // Keep the in-memory data usable even when browser storage is full or blocked.
+    }
     console.warn("Failed to save MyLoveCat data.", error);
   }
+}
+
+function loadLocalData() {
+  const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+  if (!raw) return { exists: false, data: emptyData };
+
+  try {
+    return { exists: true, data: normalizeData(JSON.parse(raw) as Partial<AppData>) };
+  } catch {
+    return { exists: false, data: emptyData };
+  }
+}
+
+function normalizeData(data: Partial<AppData>): AppData {
+  return {
+    cats: Array.isArray(data.cats) ? data.cats : [],
+    records: Array.isArray(data.records) ? data.records : [],
+    settings: {
+      reminderTime: data.settings?.reminderTime ?? "21:00",
+      theme: isThemeMode(data.settings?.theme) ? data.settings.theme : "system",
+      lastReminderDate: data.settings?.lastReminderDate,
+    },
+  };
+}
+
+function openDatabase(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error("IndexedDB를 열 수 없어요."));
+    request.onblocked = () => reject(new Error("IndexedDB 업그레이드가 차단됐어요."));
+  });
+}
+
+function idbGet<T>(db: IDBDatabase, key: string): Promise<T | undefined> {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, "readonly");
+    const request = transaction.objectStore(STORE_NAME).get(key);
+
+    request.onsuccess = () => resolve(request.result as T | undefined);
+    request.onerror = () => reject(request.error ?? new Error("IndexedDB 데이터를 읽을 수 없어요."));
+  });
+}
+
+function idbSet(db: IDBDatabase, key: string, value: AppData): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, "readwrite");
+    transaction.objectStore(STORE_NAME).put(value, key);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB 데이터를 저장할 수 없어요."));
+  });
 }
 
 export function makeId(prefix: string) {
@@ -125,6 +206,14 @@ export function filledCount(items: RecordItems) {
   return recordFieldOrder.length - missingFields(items).length;
 }
 
+export function missingCoreFields(items: RecordItems): RecordField[] {
+  return coreRecordFieldOrder.filter((key) => items[key] === undefined || items[key] === null);
+}
+
+export function filledCoreCount(items: RecordItems) {
+  return coreRecordFieldOrder.length - missingCoreFields(items).length;
+}
+
 export function upsertRecord(records: DailyRecord[], record: DailyRecord) {
   const index = records.findIndex((item) => item.catId === record.catId && item.date === record.date);
   if (index === -1) return [...records, record].sort(sortRecordsAsc);
@@ -198,6 +287,16 @@ export function downloadJson(filename: string, payload: unknown) {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+export async function estimateStorageUsage() {
+  if (!navigator.storage?.estimate) return undefined;
+  return navigator.storage.estimate();
+}
+
+export async function requestPersistentStorage() {
+  if (!navigator.storage?.persist) return undefined;
+  return navigator.storage.persist();
 }
 
 export function readImageAsset(file: File, options?: { maxEdge?: number; quality?: number }): Promise<ImageAsset> {

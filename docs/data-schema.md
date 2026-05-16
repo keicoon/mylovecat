@@ -26,8 +26,9 @@ Reasons:
 - Date-range reports can be made by loading only the needed month files.
 - It avoids too many daily files and avoids oversized yearly files.
 
-The PWA can store data internally in IndexedDB, but import/export should use
-this monthly JSON document shape.
+The PWA stores data internally in IndexedDB when available, with a localStorage
+fallback for blocked or unsupported environments. Import/export should use this
+monthly JSON document shape.
 
 ## Core Rules
 
@@ -44,6 +45,9 @@ this monthly JSON document shape.
   not counted in the core quick-input completion rate.
 - Cat representative images and daily special-note images are stored as
   compressed local image assets in v1.
+- Core daily completion is calculated from appetite, water intake, stool count,
+  urine count, activity, food/snack amount, and condition. Vomit, weight,
+  medication, notes, and photos are extended record data.
 
 ## Value Enums
 
