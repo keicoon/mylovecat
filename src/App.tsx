@@ -45,6 +45,7 @@ import type {
   RelativeValue,
   ThemeMode,
 } from "./types";
+import PublicPages, { isPublicPath } from "./PublicPages";
 import { recordFieldLabels } from "./types";
 import { advancedRecordFieldOrder, coreRecordFieldOrder } from "./types";
 import {
@@ -125,6 +126,27 @@ function initialTab(): TabId {
 }
 
 export default function App() {
+  const [path, setPath] = useState(() => window.location.pathname);
+
+  useEffect(() => {
+    const syncPath = () => setPath(window.location.pathname);
+
+    window.addEventListener("popstate", syncPath);
+    window.addEventListener("mylovecat:navigation", syncPath);
+    return () => {
+      window.removeEventListener("popstate", syncPath);
+      window.removeEventListener("mylovecat:navigation", syncPath);
+    };
+  }, []);
+
+  if (isPublicPath(path)) {
+    return <PublicPages path={path} />;
+  }
+
+  return <TrackerApp />;
+}
+
+function TrackerApp() {
   const [data, setData] = useState<AppData>(() => emptyData);
   const [storageReady, setStorageReady] = useState(false);
   const [selectedCatId, setSelectedCatId] = useState("");

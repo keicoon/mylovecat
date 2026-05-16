@@ -48,3 +48,7 @@ npm run build
 ## PWA 확인
 
 macOS와 iPhone에서 확인하는 방법은 `docs/run-pwa-macos-iphone.md`에 있습니다.
+
+## 정적 배포와 AdSense
+
+정적 배포와 AdSense 준비 방법은 `docs/static-deploy-adsense.md`에 있습니다.

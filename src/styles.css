@@ -1254,6 +1254,215 @@ th {
   display: none;
 }
 
+.public-shell {
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+.public-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid rgba(223, 230, 232, 0.75);
+  background: rgba(247, 248, 251, 0.84);
+  padding: 14px 24px;
+  backdrop-filter: blur(22px);
+}
+
+.public-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.public-brand .brand-mark {
+  width: 42px;
+  height: 42px;
+}
+
+.public-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.public-nav a,
+.public-footer a {
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 820;
+  padding: 9px 10px;
+  text-decoration: none;
+}
+
+.public-nav a:hover,
+.public-footer a:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.public-nav .public-app-link {
+  background: #13201e;
+  color: #ffffff;
+}
+
+.public-main {
+  width: min(1040px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 42px 0 54px;
+}
+
+.public-page {
+  display: grid;
+  gap: 22px;
+}
+
+.public-hero {
+  display: grid;
+  gap: 16px;
+  border: 1px solid rgba(223, 230, 232, 0.82);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--shadow);
+  padding: 34px;
+}
+
+.public-hero.compact {
+  padding: 28px;
+}
+
+.public-hero h1 {
+  max-width: 780px;
+  margin: 0;
+  color: var(--ink);
+  font-size: 38px;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+
+.public-hero p {
+  max-width: 780px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.public-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.public-card,
+.guide-block,
+.ad-placeholder,
+.public-table-wrap {
+  border: 1px solid rgba(223, 230, 232, 0.82);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--shadow);
+}
+
+.public-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.public-card span {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(31, 138, 118, 0.1);
+  color: var(--green);
+}
+
+.public-card h2,
+.guide-block h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 19px;
+}
+
+.public-card p,
+.guide-block p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.68;
+}
+
+.content-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.guide-block {
+  display: grid;
+  gap: 10px;
+  padding: 20px;
+}
+
+.ad-placeholder {
+  display: flex;
+  min-height: 96px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-style: dashed;
+  color: var(--muted);
+  font-weight: 820;
+}
+
+.public-table-wrap {
+  overflow: auto;
+  padding: 8px;
+}
+
+.public-table {
+  min-width: 680px;
+}
+
+.public-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  border-top: 1px solid rgba(223, 230, 232, 0.75);
+  padding: 20px;
+}
+
+:root[data-theme="dark"] .public-header {
+  border-color: rgba(50, 65, 62, 0.78);
+  background: rgba(14, 20, 19, 0.82);
+}
+
+:root[data-theme="dark"] .public-hero,
+:root[data-theme="dark"] .public-card,
+:root[data-theme="dark"] .guide-block,
+:root[data-theme="dark"] .ad-placeholder,
+:root[data-theme="dark"] .public-table-wrap {
+  border-color: rgba(50, 65, 62, 0.86);
+  background: rgba(22, 33, 31, 0.9);
+}
+
+:root[data-theme="dark"] .public-nav .public-app-link {
+  background: #d9fbf3;
+  color: #0e1413;
+}
+
 :root[data-theme="dark"] .rail,
 :root[data-theme="dark"] .context-pane {
   border-color: rgba(50, 65, 62, 0.78);
@@ -1539,6 +1748,52 @@ th {
   .toast {
     right: 12px;
     bottom: calc(90px + env(safe-area-inset-bottom));
+  }
+
+  .public-header {
+    position: static;
+    display: grid;
+    max-width: 100vw;
+    overflow: hidden;
+    padding: 14px 16px;
+  }
+
+  .public-nav {
+    max-width: 100%;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .public-nav a,
+  .public-footer a {
+    font-size: 13px;
+    padding: 8px 8px;
+  }
+
+  .public-main {
+    width: min(100% - 32px, 1040px);
+    overflow: hidden;
+    padding: 20px 0 36px;
+  }
+
+  .public-hero,
+  .public-hero.compact {
+    padding: 20px;
+  }
+
+  .public-hero h1 {
+    font-size: 25px;
+    line-height: 1.18;
+  }
+
+  .public-hero p {
+    font-size: 15px;
+  }
+
+  .public-grid {
+    grid-template-columns: 1fr;
   }
 }
 
