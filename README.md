@@ -1,0 +1,40 @@
+# MyLoveCat
+
+고양이의 하루 상태를 빠르게 기록하고, 기록된 변화를 캘린더/그래프/타임라인/표로 추적하는 PWA입니다.
+
+## 실행
+
+```bash
+npm install
+npm run dev
+```
+
+개발 서버:
+
+```text
+http://localhost:5173/
+```
+
+프로덕션 빌드:
+
+```bash
+npm run build
+```
+
+## 현재 구현 범위
+
+- 여러 고양이 프로필 등록, 수정, 삭제
+- 날짜별 빠른 기록 입력
+- radio/segmented control 기반 선택형 입력
+- 부분 저장과 미입력 항목 안내
+- `어제와 비슷하게` 빠른 입력
+- 캘린더 기록/주의 항목 표시
+- 7일/30일/90일 추적 요약
+- 체중 그래프, 타임라인, 테이블
+- 사용자 지정 기록 알림 시간
+- 월간 JSON 내보내기/가져오기
+- PWA manifest와 service worker
+
+## 데이터
+
+스키마 문서는 `docs/data-schema.md`에 있습니다.
