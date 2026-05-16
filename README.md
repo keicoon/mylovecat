@@ -44,3 +44,7 @@ npm run build
 ## 데이터
 
 스키마 문서는 `docs/data-schema.md`에 있습니다.
+
+## PWA 확인
+
+macOS와 iPhone에서 확인하는 방법은 `docs/run-pwa-macos-iphone.md`에 있습니다.

@@ -1,5 +1,14 @@
 const CACHE_NAME = "mylovecat-shell-v1";
-const APP_SHELL = ["/", "/index.html", "/app.webmanifest", "/icon.svg", "/favicon.svg"];
+const APP_SHELL = [
+  "/",
+  "/index.html",
+  "/app.webmanifest",
+  "/icon.svg",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/apple-touch-icon.png",
+  "/favicon.svg",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

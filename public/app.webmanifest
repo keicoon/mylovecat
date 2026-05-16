@@ -10,6 +10,18 @@
   "orientation": "portrait-primary",
   "icons": [
     {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
@@ -21,13 +33,13 @@
       "name": "오늘 기록",
       "short_name": "기록",
       "url": "/?tab=today",
-      "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "상태 추적",
       "short_name": "추적",
       "url": "/?tab=track",
-      "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }
