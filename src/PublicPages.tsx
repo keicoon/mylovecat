@@ -19,6 +19,14 @@ export function isPublicPath(path: string): path is PublicPath {
   return publicPaths.has(path);
 }
 
+function withBase(path: "/" | PublicPath) {
+  const basePath = import.meta.env.BASE_URL;
+  if (basePath === "/") return path;
+
+  const cleanBasePath = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
+  return path === "/" ? `${cleanBasePath}/` : `${cleanBasePath}${path}`;
+}
+
 export default function PublicPages({ path }: { path: string }) {
   useAdSenseScript();
 
@@ -42,19 +50,19 @@ export default function PublicPages({ path }: { path: string }) {
 function PublicHeader() {
   return (
     <header className="public-header">
-      <a className="public-brand" href="/">
+      <a className="public-brand" href={withBase("/")}>
         <span className="brand-mark">
           <Cat size={22} aria-hidden="true" />
         </span>
         <strong>MyLoveCat</strong>
       </a>
       <nav className="public-nav" aria-label="공개 페이지">
-        <a href="/about">소개</a>
-        <a href="/guide">기록 가이드</a>
-        <a href="/cat-health-log-template">템플릿</a>
-        <a href="/privacy">개인정보</a>
-        <a href="/terms">약관</a>
-        <a className="public-app-link" href="/">
+        <a href={withBase("/about")}>소개</a>
+        <a href={withBase("/guide")}>기록 가이드</a>
+        <a href={withBase("/cat-health-log-template")}>템플릿</a>
+        <a href={withBase("/privacy")}>개인정보</a>
+        <a href={withBase("/terms")}>약관</a>
+        <a className="public-app-link" href={withBase("/")}>
           앱 열기
         </a>
       </nav>
@@ -257,10 +265,10 @@ function GuideBlock({ title, children }: { title: string; children: ReactNode })
 function PublicFooter() {
   return (
     <footer className="public-footer">
-      <a href="/about">소개</a>
-      <a href="/privacy">개인정보</a>
-      <a href="/terms">약관</a>
-      <a href="/">앱 열기</a>
+      <a href={withBase("/about")}>소개</a>
+      <a href={withBase("/privacy")}>개인정보</a>
+      <a href={withBase("/terms")}>약관</a>
+      <a href={withBase("/")}>앱 열기</a>
     </footer>
   );
 }

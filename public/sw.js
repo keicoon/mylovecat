@@ -1,14 +1,18 @@
-const CACHE_NAME = "mylovecat-shell-v1";
+const CACHE_NAME = "mylovecat-shell-v2";
+const SCOPE_URL = self.registration.scope;
+const INDEX_URL = new URL("index.html", SCOPE_URL).toString();
+const ICON_URL = new URL("icon.svg", SCOPE_URL).toString();
+const BADGE_URL = new URL("favicon.svg", SCOPE_URL).toString();
 const APP_SHELL = [
-  "/",
-  "/index.html",
-  "/app.webmanifest",
-  "/icon.svg",
-  "/icon-192.png",
-  "/icon-512.png",
-  "/apple-touch-icon.png",
-  "/favicon.svg",
-];
+  "",
+  "index.html",
+  "app.webmanifest",
+  "icon.svg",
+  "icon-192.png",
+  "icon-512.png",
+  "apple-touch-icon.png",
+  "favicon.svg",
+].map((path) => new URL(path, SCOPE_URL).toString());
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -29,7 +33,7 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
 
   if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match("/index.html")));
+    event.respondWith(fetch(request).catch(() => caches.match(INDEX_URL)));
     return;
   }
 
@@ -53,8 +57,8 @@ self.addEventListener("message", (event) => {
   event.waitUntil(
     self.registration.showNotification("MyLoveCat", {
       body: "오늘 기록을 남길 시간이에요.",
-      icon: "/icon.svg",
-      badge: "/favicon.svg",
+      icon: ICON_URL,
+      badge: BADGE_URL,
       tag: "mylovecat-daily-reminder",
     }),
   );

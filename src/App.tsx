@@ -120,16 +120,29 @@ const quickCopyFields: RecordField[] = [
   "condition",
 ];
 
+function normalizeAppPath(pathname: string) {
+  const basePath = import.meta.env.BASE_URL;
+  const cleanBasePath = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
+
+  if (cleanBasePath && pathname === cleanBasePath) return "/";
+  if (basePath !== "/" && pathname.startsWith(basePath)) {
+    const normalized = `/${pathname.slice(basePath.length)}`;
+    return normalized !== "/" && normalized.endsWith("/") ? normalized.slice(0, -1) : normalized;
+  }
+
+  return pathname !== "/" && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+}
+
 function initialTab(): TabId {
   const tab = new URLSearchParams(window.location.search).get("tab");
   return tabs.some((item) => item.id === tab) ? (tab as TabId) : "today";
 }
 
 export default function App() {
-  const [path, setPath] = useState(() => window.location.pathname);
+  const [path, setPath] = useState(() => normalizeAppPath(window.location.pathname));
 
   useEffect(() => {
-    const syncPath = () => setPath(window.location.pathname);
+    const syncPath = () => setPath(normalizeAppPath(window.location.pathname));
 
     window.addEventListener("popstate", syncPath);
     window.addEventListener("mylovecat:navigation", syncPath);
@@ -241,8 +254,8 @@ function TrackerApp() {
           .then((registration) =>
             registration.showNotification("MyLoveCat", {
               body: "오늘 기록을 남길 시간이에요.",
-              icon: "/icon.svg",
-              badge: "/favicon.svg",
+              icon: `${import.meta.env.BASE_URL}icon.svg`,
+              badge: `${import.meta.env.BASE_URL}favicon.svg`,
               tag: "mylovecat-daily-reminder",
             }),
           )

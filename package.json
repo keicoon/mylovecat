@@ -7,8 +7,10 @@
     "dev": "vite --host 0.0.0.0",
     "dev:lan": "vite --host 0.0.0.0 --port 5173",
     "build": "tsc --noEmit && vite build",
+    "build:pages": "VITE_BASE_PATH=/mylovecat/ npm run build && cp dist/index.html dist/404.html",
     "preview": "vite preview --host 0.0.0.0",
-    "preview:pwa": "npm run build && vite preview --host 0.0.0.0 --port 4173"
+    "preview:pwa": "npm run build && vite preview --host 0.0.0.0 --port 4173",
+    "preview:pages": "npm run build:pages && VITE_BASE_PATH=/mylovecat/ vite preview --host 0.0.0.0 --port 4173"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.0.2",

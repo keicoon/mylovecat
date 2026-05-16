@@ -20,6 +20,8 @@ Recommended hosting options:
 
 | Host | Build command | Output directory | Notes |
 |---|---|---|---|
+| GitHub Pages project site | `npm run build:pages` | `dist` | Use the included GitHub Actions workflow. The app is served under `/mylovecat/`. |
+| GitHub Pages custom domain | `npm run build` | `dist` | Use root base path when the domain points directly to this app. |
 | Vercel | `npm run build` | `dist` | `vercel.json` rewrites SPA routes to `index.html`. |
 | Netlify | `npm run build` | `dist` | `netlify.toml` and `_redirects` are included. |
 | Cloudflare Pages | `npm run build` | `dist` | `_redirects` is copied from `public/`. |
@@ -86,7 +88,9 @@ Before applying:
 
 ## Official References
 
+- GitHub Pages security/deploy notes: `docs/github-pages-security.md`
 - Vite static deploy: https://vite.dev/guide/static-deploy.html
+- GitHub Pages custom workflows: https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages
 - Vercel rewrites: https://vercel.com/docs/rewrites
 - Netlify rewrites: https://docs.netlify.com/routing/redirects/rewrites-proxies/
 - Cloudflare Pages redirects: https://developers.cloudflare.com/pages/configuration/redirects/
