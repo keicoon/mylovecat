@@ -40,6 +40,10 @@ this monthly JSON document shape.
 - `stoolCount` and `urineCount` use `0`, `1`, `2`, `3`, `4`, where `4` means
   `4+` in the UI.
 - `weightKg` is optional and should only be stored when measured.
+- `note` and `photos` are optional special notes for a daily record and are
+  not counted in the core quick-input completion rate.
+- Cat representative images and daily special-note images are stored as
+  compressed local image assets in v1.
 
 ## Value Enums
 
@@ -140,6 +144,9 @@ Sex values:
         },
         "neutered": {
           "type": "boolean"
+        },
+        "avatarImage": {
+          "$ref": "#/$defs/imageAsset"
         }
       }
     },
@@ -208,6 +215,18 @@ Sex values:
         "condition": {
           "type": "string",
           "enum": ["bad", "normal", "good"]
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "photos": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/imageAsset"
+          }
         }
       }
     },
@@ -220,6 +239,32 @@ Sex values:
       "minimum": 0,
       "maximum": 4,
       "description": "0, 1, 2, 3, or 4. In the UI, 4 means 4+."
+    },
+    "imageAsset": {
+      "type": "object",
+      "required": ["id", "name", "type", "dataUrl", "createdAt"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "examples": ["image/jpeg"]
+        },
+        "dataUrl": {
+          "type": "string",
+          "pattern": "^data:image/"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
     }
   }
 }
@@ -262,7 +307,9 @@ Sex values:
         "vomit": false,
         "activity": "decreased",
         "foodSnackAmount": "same",
-        "condition": "normal"
+        "condition": "normal",
+        "note": "아침에 평소보다 오래 숨어 있었음",
+        "photos": []
       }
     }
   ]
@@ -273,9 +320,8 @@ Sex values:
 
 Keep these out of v1 unless needed:
 
-- `note`: free text memo.
-- `photos`: local image references or uploaded image URLs.
 - `medications`: named medication records instead of simple taken/not-taken.
 - `foodItems`: separate food and treat details.
 - `vetVisits`: explicit clinic visit events.
 - `shareReports`: generated PDF/share-link metadata.
+- Cloud image storage and cross-device sync.

@@ -3,6 +3,7 @@ import type { CSSProperties, ChangeEvent } from "react";
 import {
   Activity,
   Bell,
+  Camera,
   CalendarDays,
   Cat,
   Check,
@@ -13,17 +14,22 @@ import {
   Download,
   Droplets,
   HeartPulse,
+  Image as ImageIcon,
   LineChart,
+  Monitor,
+  Moon,
   PawPrint,
   Pill,
   Plus,
   RotateCcw,
   Save,
   Settings,
+  Sun,
   Trash2,
   Upload,
   Utensils,
   Weight,
+  X,
 } from "lucide-react";
 import type {
   AppData,
@@ -31,10 +37,12 @@ import type {
   CatSex,
   ConditionValue,
   DailyRecord,
+  ImageAsset,
   MonthlyExport,
   RecordField,
   RecordItems,
   RelativeValue,
+  ThemeMode,
 } from "./types";
 import { recordFieldLabels, recordFieldOrder } from "./types";
 import {
@@ -53,6 +61,7 @@ import {
   monthKey,
   monthStartWeekday,
   parseDate,
+  readImageAsset,
   saveData,
   sortRecordsDesc,
   todayString,
@@ -120,6 +129,23 @@ export default function App() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => saveData(data), [data]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const applyTheme = () => {
+      const resolvedTheme = data.settings.theme === "system" ? (media.matches ? "dark" : "light") : data.settings.theme;
+      document.documentElement.dataset.theme = resolvedTheme;
+      document.documentElement.style.colorScheme = resolvedTheme;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolvedTheme === "dark" ? "#0e1413" : "#f7f8fb");
+    };
+
+    applyTheme();
+    if (data.settings.theme !== "system") return;
+
+    media.addEventListener("change", applyTheme);
+    return () => media.removeEventListener("change", applyTheme);
+  }, [data.settings.theme]);
 
   useEffect(() => {
     if (!selectedCatId && data.cats[0]) setSelectedCatId(data.cats[0].id);
@@ -370,7 +396,7 @@ function TopBar({
             key={cat.id}
             onClick={() => onSelectCat(cat.id)}
           >
-            <PawPrint size={16} aria-hidden="true" />
+            <CatAvatar cat={cat} size="chip" />
             {cat.name}
           </button>
         ))}
@@ -476,6 +502,34 @@ function TodayView({
     onToast({ tone: "success", message: "저장했어요. 오늘 기록이 채워졌어요." });
   };
 
+  const addPhotos = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (!files.length) return;
+
+    const currentPhotos = draft.photos ?? [];
+    const remaining = Math.max(0, 4 - currentPhotos.length);
+    if (!remaining) {
+      onToast({ tone: "warning", message: "사진은 하루 기록당 4장까지 추가할 수 있어요." });
+      return;
+    }
+
+    try {
+      const assets = await Promise.all(
+        files.slice(0, remaining).map((file) => readImageAsset(file, { maxEdge: 900, quality: 0.78 })),
+      );
+      setItem("photos", [...currentPhotos, ...assets]);
+      onToast({ tone: "success", message: `사진 ${assets.length}장을 추가했어요.` });
+    } catch (error) {
+      onToast({ tone: "danger", message: error instanceof Error ? error.message : "사진 추가에 실패했어요." });
+    }
+  };
+
+  const removePhoto = (photoId: string) => {
+    const nextPhotos = (draft.photos ?? []).filter((photo) => photo.id !== photoId);
+    setItem("photos", nextPhotos.length ? nextPhotos : undefined);
+  };
+
   return (
     <section className="today-layout">
       <div className="panel record-panel">
@@ -573,6 +627,35 @@ function TodayView({
           </FieldBlock>
         </div>
 
+        <div className="detail-panel">
+          <div className="detail-head">
+            <div>
+              <p className="eyebrow">Special note</p>
+              <h3>특이사항</h3>
+            </div>
+            <label className="soft-button file-button">
+              <Camera size={18} aria-hidden="true" />
+              사진 추가
+              <input type="file" accept="image/*" multiple onChange={addPhotos} />
+            </label>
+          </div>
+          <textarea
+            className="note-input"
+            maxLength={500}
+            placeholder="예: 아침에 구토 1회, 식욕이 평소보다 떨어짐"
+            value={draft.note ?? ""}
+            onChange={(event) => setItem("note", event.target.value || undefined)}
+          />
+          {draft.photos?.length ? (
+            <ImageGrid images={draft.photos} onRemove={removePhoto} />
+          ) : (
+            <p className="helper-text">
+              <ImageIcon size={16} aria-hidden="true" />
+              사진은 최대 4장까지 저장됩니다.
+            </p>
+          )}
+        </div>
+
         <div className="record-footer">
           <p>{missing.length ? `미입력 ${missing.length}개가 있어요.` : "모든 항목이 입력됐어요."}</p>
           <button className="primary-button" onClick={saveRecord}>
@@ -653,7 +736,11 @@ function CalendarView({
               <span>{Number(cell.date.slice(8, 10))}</span>
               {record ? (
                 <small>
-                  {alerts.length ? `주의 ${alerts.length}` : `${complete}/${recordFieldOrder.length}`}
+                  {alerts.length
+                    ? `주의 ${alerts.length}`
+                    : record.items.note || record.items.photos?.length
+                      ? "특이사항"
+                      : `${complete}/${recordFieldOrder.length}`}
                 </small>
               ) : null}
             </button>
@@ -734,6 +821,8 @@ function TrackView({ cat, records, selectedDate }: { cat: CatProfile; records: D
                 <th>소변</th>
                 <th>구토</th>
                 <th>컨디션</th>
+                <th>메모</th>
+                <th>사진</th>
               </tr>
             </thead>
             <tbody>
@@ -746,6 +835,8 @@ function TrackView({ cat, records, selectedDate }: { cat: CatProfile; records: D
                   <td>{formatCount(record.items.urineCount)}</td>
                   <td>{record.items.vomit === undefined ? "-" : record.items.vomit ? "있음" : "없음"}</td>
                   <td>{formatCondition(record.items.condition)}</td>
+                  <td>{record.items.note ? "있음" : "-"}</td>
+                  <td>{record.items.photos?.length ? `${record.items.photos.length}장` : "-"}</td>
                 </tr>
               ))}
             </tbody>
@@ -892,6 +983,33 @@ function SettingsView({
 
       <div className="panel">
         <div className="panel-head compact">
+          <h2>화면</h2>
+        </div>
+        <div className="theme-control">
+          <Segmented
+            value={data.settings.theme}
+            options={[
+              { value: "system" as const, label: "자동" },
+              { value: "light" as const, label: "라이트" },
+              { value: "dark" as const, label: "다크" },
+            ]}
+            onChange={(theme: ThemeMode) =>
+              onDataChange((current) => ({
+                ...current,
+                settings: { ...current.settings, theme },
+              }))
+            }
+          />
+          <div className="theme-preview" aria-hidden="true">
+            <Monitor size={18} />
+            <Sun size={18} />
+            <Moon size={18} />
+          </div>
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-head compact">
           <h2>데이터</h2>
         </div>
         <div className="button-stack">
@@ -923,9 +1041,7 @@ function ContextPane({ cat, selectedDate, records }: { cat: CatProfile; selected
   return (
     <aside className="context-pane">
       <div className="pet-card">
-        <div className="pet-avatar">
-          <Cat size={32} aria-hidden="true" />
-        </div>
+        <CatAvatar cat={cat} size="large" />
         <div>
           <p className="eyebrow">선택됨</p>
           <h2>{cat.name}</h2>
@@ -944,6 +1060,10 @@ function ContextPane({ cat, selectedDate, records }: { cat: CatProfile; selected
             <StatusLine label="입력" value={`${filledCount(todayRecord.items)}/${recordFieldOrder.length}`} />
             <StatusLine label="특이점" value={alerts.length ? `${alerts.length}개` : "없음"} tone={alerts.length ? "warning" : "calm"} />
             <StatusLine label="체중" value={todayRecord.items.weightKg ? `${todayRecord.items.weightKg}kg` : "-"} />
+            <StatusLine label="메모" value={todayRecord.items.note ? "있음" : "-"} />
+            <StatusLine label="사진" value={todayRecord.items.photos?.length ? `${todayRecord.items.photos.length}장` : "-"} />
+            {todayRecord.items.note ? <p className="context-note">{todayRecord.items.note}</p> : null}
+            {todayRecord.items.photos?.length ? <ImageGrid images={todayRecord.items.photos} /> : null}
           </div>
         ) : (
           <EmptyLine text="이 날짜의 기록이 없어요." />
@@ -968,6 +1088,31 @@ function ContextPane({ cat, selectedDate, records }: { cat: CatProfile; selected
   );
 }
 
+function CatAvatar({ cat, size }: { cat: Pick<CatProfile, "name" | "avatarImage">; size: "chip" | "large" }) {
+  return (
+    <span className={`cat-avatar ${size}`} aria-hidden="true">
+      {cat.avatarImage ? <img src={cat.avatarImage.dataUrl} alt="" /> : <Cat size={size === "large" ? 32 : 15} />}
+    </span>
+  );
+}
+
+function ImageGrid({ images, onRemove }: { images: ImageAsset[]; onRemove?: (imageId: string) => void }) {
+  return (
+    <div className="image-grid">
+      {images.map((image) => (
+        <figure className="image-thumb" key={image.id}>
+          <img src={image.dataUrl} alt={image.name} />
+          {onRemove ? (
+            <button type="button" onClick={() => onRemove(image.id)} aria-label={`${image.name} 제거`}>
+              <X size={15} aria-hidden="true" />
+            </button>
+          ) : null}
+        </figure>
+      ))}
+    </div>
+  );
+}
+
 function CatForm({
   initial,
   submitLabel,
@@ -983,6 +1128,21 @@ function CatForm({
   const [ageYears, setAgeYears] = useState(initial?.ageYears?.toString() ?? "");
   const [sex, setSex] = useState<CatSex>(initial?.sex ?? "unknown");
   const [neutered, setNeutered] = useState(initial?.neutered ?? true);
+  const [avatarImage, setAvatarImage] = useState<ImageAsset | undefined>(initial?.avatarImage);
+  const [imageError, setImageError] = useState("");
+
+  const changeAvatar = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    try {
+      setImageError("");
+      setAvatarImage(await readImageAsset(file, { maxEdge: 420, quality: 0.82 }));
+    } catch (error) {
+      setImageError(error instanceof Error ? error.message : "대표 이미지를 읽을 수 없어요.");
+    }
+  };
 
   const submit = () => {
     if (!name.trim()) return;
@@ -991,17 +1151,42 @@ function CatForm({
       ageYears: ageYears === "" ? undefined : Number(ageYears),
       sex,
       neutered,
+      avatarImage,
     });
     if (!initial) {
       setName("");
       setAgeYears("");
       setSex("unknown");
       setNeutered(true);
+      setAvatarImage(undefined);
+      setImageError("");
     }
   };
 
   return (
     <div className="cat-form">
+      <div className="avatar-picker">
+        <CatAvatar
+          cat={{
+            name: name || "preview",
+            avatarImage,
+          }}
+          size="large"
+        />
+        <div className="avatar-actions">
+          <label className="soft-button file-button">
+            <Camera size={18} aria-hidden="true" />
+            대표 이미지
+            <input type="file" accept="image/*" onChange={changeAvatar} />
+          </label>
+          {avatarImage ? (
+            <button className="micro-button" onClick={() => setAvatarImage(undefined)} type="button">
+              제거
+            </button>
+          ) : null}
+        </div>
+        {imageError ? <p className="form-error">{imageError}</p> : null}
+      </div>
       <label>
         이름
         <input value={name} onChange={(event) => setName(event.target.value)} placeholder="예: 루나" />
@@ -1160,7 +1345,11 @@ function TimelineItem({ record }: { record: DailyRecord }) {
         {record.items.waterIntake ? <span>물 {formatRelative(record.items.waterIntake)}</span> : null}
         {record.items.weightKg ? <span>{record.items.weightKg}kg</span> : null}
         {record.items.condition ? <span>{formatCondition(record.items.condition)}</span> : null}
+        {record.items.note ? <span>메모</span> : null}
+        {record.items.photos?.length ? <span>사진 {record.items.photos.length}</span> : null}
       </div>
+      {record.items.note ? <p className="timeline-note">{record.items.note}</p> : null}
+      {record.items.photos?.length ? <ImageGrid images={record.items.photos.slice(0, 3)} /> : null}
     </article>
   );
 }

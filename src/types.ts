@@ -1,6 +1,15 @@
 export type CatSex = "male" | "female" | "unknown";
 export type RelativeValue = "decreased" | "same" | "increased";
 export type ConditionValue = "bad" | "normal" | "good";
+export type ThemeMode = "system" | "light" | "dark";
+
+export interface ImageAsset {
+  id: string;
+  name: string;
+  type: string;
+  dataUrl: string;
+  createdAt: string;
+}
 
 export interface CatProfile {
   id: string;
@@ -8,6 +17,7 @@ export interface CatProfile {
   ageYears?: number;
   sex: CatSex;
   neutered: boolean;
+  avatarImage?: ImageAsset;
 }
 
 export interface RecordItems {
@@ -21,6 +31,8 @@ export interface RecordItems {
   medicationTaken?: boolean;
   foodSnackAmount?: RelativeValue;
   condition?: ConditionValue;
+  note?: string;
+  photos?: ImageAsset[];
 }
 
 export interface DailyRecord {
@@ -34,6 +46,7 @@ export interface DailyRecord {
 
 export interface AppSettings {
   reminderTime: string;
+  theme: ThemeMode;
   lastReminderDate?: string;
 }
 
@@ -57,7 +70,7 @@ export interface MonthlyExport {
   records: DailyRecord[];
 }
 
-export type RecordField = keyof RecordItems;
+export type RecordField = Exclude<keyof RecordItems, "note" | "photos">;
 
 export const recordFieldLabels: Record<RecordField, string> = {
   appetite: "식욕",

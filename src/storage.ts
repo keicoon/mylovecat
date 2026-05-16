@@ -2,9 +2,11 @@ import type {
   AppData,
   CatProfile,
   DailyRecord,
+  ImageAsset,
   MonthlyExport,
   RecordField,
   RecordItems,
+  ThemeMode,
 } from "./types";
 import { recordFieldOrder } from "./types";
 
@@ -15,6 +17,7 @@ export const emptyData: AppData = {
   records: [],
   settings: {
     reminderTime: "21:00",
+    theme: "system",
   },
 };
 
@@ -30,6 +33,7 @@ export function loadData(): AppData {
       records: Array.isArray(parsed.records) ? parsed.records : [],
       settings: {
         reminderTime: parsed.settings?.reminderTime ?? "21:00",
+        theme: isThemeMode(parsed.settings?.theme) ? parsed.settings.theme : "system",
         lastReminderDate: parsed.settings?.lastReminderDate,
       },
     };
@@ -39,7 +43,11 @@ export function loadData(): AppData {
 }
 
 export function saveData(data: AppData) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.warn("Failed to save MyLoveCat data.", error);
+  }
 }
 
 export function makeId(prefix: string) {
@@ -48,6 +56,10 @@ export function makeId(prefix: string) {
   }
 
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
+function isThemeMode(value: unknown): value is ThemeMode {
+  return value === "system" || value === "light" || value === "dark";
 }
 
 export function todayString() {
@@ -97,6 +109,10 @@ export function compactItems(items: RecordItems): RecordItems {
     if (value === undefined || value === null) continue;
     Object.assign(compacted, { [key]: value });
   }
+
+  const note = items.note?.trim();
+  if (note) compacted.note = note;
+  if (items.photos?.length) compacted.photos = items.photos;
 
   return compacted;
 }
@@ -182,4 +198,59 @@ export function downloadJson(filename: string, payload: unknown) {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+export function readImageAsset(file: File, options?: { maxEdge?: number; quality?: number }): Promise<ImageAsset> {
+  const maxEdge = options?.maxEdge ?? 960;
+  const quality = options?.quality ?? 0.84;
+
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("이미지 파일만 업로드할 수 있어요."));
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      try {
+        const scale = Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight));
+        const width = Math.max(1, Math.round(image.naturalWidth * scale));
+        const height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+
+        if (!context) {
+          reject(new Error("이미지 처리에 실패했어요."));
+          return;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, width, height);
+        context.drawImage(image, 0, 0, width, height);
+
+        resolve({
+          id: makeId("image"),
+          name: file.name,
+          type: "image/jpeg",
+          dataUrl: canvas.toDataURL("image/jpeg", quality),
+          createdAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        reject(error);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("이미지를 읽을 수 없어요."));
+    };
+
+    image.src = url;
+  });
 }
