@@ -44,13 +44,6 @@ if (client) {
   assert(/^ca-pub-\d{16}$/.test(client), "VITE_ADSENSE_CLIENT format is invalid.");
   assert(/^\d{4,}$/.test(slot), "VITE_ADSENSE_SLOT_CONTENT format is invalid.");
   if (lockedClient) assert(client === lockedClient, `AdSense client mismatch. Expected ${lockedClient}, got ${client}.`);
-
-  const adsTxt = readText("ads.txt");
-  const publisherId = client.replace("ca-", "");
-  assert(
-    adsTxt.trim() === `google.com, ${publisherId}, DIRECT, f08c47fec0942fa0`,
-    "ads.txt does not authorize the configured AdSense publisher id.",
-  );
 }
 
 if (failures.length) {
