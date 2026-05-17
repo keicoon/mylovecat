@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Cat, ClipboardCheck, CalendarDays, LineChart, Settings } from "lucide-react";
+import { Cat, ClipboardCheck, CalendarDays, LineChart, Settings, BookOpen } from "lucide-react";
 import type { AppData, CatProfile, DailyRecord, ThemeMode } from "./types";
 import PublicPages, { isPublicPath } from "./PublicPages";
 import { applyCustomThemeToRoot } from "./theme";
@@ -31,7 +31,7 @@ import { TrackView } from "./views/TrackView";
 import { SettingsView } from "./views/SettingsView";
 import { ContextPane } from "./views/ContextPane";
 
-type TabId = "today" | "calendar" | "track" | "settings";
+type TabId = "today" | "calendar" | "track" | "settings" | "info";
 type ToastState = { tone: "success" | "warning" | "danger"; message: string } | null;
 
 type BeforeInstallPromptEvent = Event & {
@@ -48,11 +48,12 @@ type InstallContext = {
   steps: string[];
 };
 
-const tabs: Array<{ id: TabId; label: string; icon: typeof ClipboardCheck }> = [
+const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "today", label: "기록", icon: ClipboardCheck },
   { id: "calendar", label: "캘린더", icon: CalendarDays },
   { id: "track", label: "추적", icon: LineChart },
   { id: "settings", label: "설정", icon: Settings },
+  { id: "info", label: "정보", icon: BookOpen },
 ];
 
 function isStandaloneDisplay() {
@@ -318,6 +319,12 @@ function TrackerApp() {
   };
 
   const changeTab = (tab: TabId) => {
+    if (tab === "info") {
+      const infoPath = "/about";
+      window.history.pushState(null, "", infoPath);
+      window.dispatchEvent(new CustomEvent("mylovecat:navigation"));
+      return;
+    }
     setActiveTab(tab);
     window.history.replaceState(null, "", `?tab=${tab}`);
   };
@@ -366,11 +373,11 @@ function TrackerApp() {
 
         {!storageReady ? (
           <LoadingView />
-        ) : data.cats.length === 0 ? (
+        ) : data.cats.length === 0 && (activeTab === "today" || activeTab === "calendar" || activeTab === "track") ? (
           <SetupView onAddCat={addCat} />
-        ) : selectedCat ? (
+        ) : (
           <>
-            {activeTab === "today" && (
+            {activeTab === "today" && selectedCat && (
               <TodayView
                 cat={selectedCat}
                 cats={data.cats}
@@ -382,7 +389,7 @@ function TrackerApp() {
                 onToast={setToast}
               />
             )}
-            {activeTab === "calendar" && (
+            {activeTab === "calendar" && selectedCat && (
               <CalendarView
                 cat={selectedCat}
                 records={selectedRecords}
@@ -395,7 +402,7 @@ function TrackerApp() {
                 }}
               />
             )}
-            {activeTab === "track" && (
+            {activeTab === "track" && selectedCat && (
               <div className="track-layout">
                 <TrackView cat={selectedCat} records={selectedRecords} selectedDate={selectedDate} onToast={setToast} />
                 <AdUnit label="추적 페이지 하단 광고" />
@@ -419,7 +426,7 @@ function TrackerApp() {
               </div>
             )}
           </>
-        ) : null}
+        )}
       </main>
 
       {data.cats.length > 0 && selectedCat ? (
