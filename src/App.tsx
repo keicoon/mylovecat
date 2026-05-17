@@ -14,8 +14,9 @@ import {
   saveData,
   sortRecordsDesc,
   todayString,
+  addDays,
 } from "./storage";
-import { shiftMonth } from "./logic";
+import { shiftMonth, calculateStreak, buildVetReportText } from "./logic";
 import { t } from "./i18n";
 import { syncService, SyncStatus } from "./syncService";
 
@@ -172,10 +173,73 @@ function TrackerApp() {
   });
   const autoSelectedTodayRef = useRef(false);
   const initialSyncRef = useRef(false);
+  const lastReportWeekRef = useRef(localStorage.getItem("mylovecat:last_report_week"));
 
   useEffect(() => {
     syncService.init(setSyncStatus);
   }, []);
+
+  // Step 3: Gratitude Notifications & Step 4: Weekly Report
+  useEffect(() => {
+    if (!storageReady || !data.cats.length) return;
+
+    // Gratitude Notification (Local Push)
+    data.cats.forEach((cat) => {
+      const streak = calculateStreak(data.records, cat.id);
+      const notifiedKey = `mylovecat:streak_notified:${cat.id}:${streak}`;
+      if ([3, 7, 30].includes(streak) && !localStorage.getItem(notifiedKey)) {
+        if (Notification.permission === "granted") {
+          const messages = {
+            3: `벌써 3일째 기록 중! 루나가 고마워하고 있어요. 🐾`,
+            7: `일주일 연속 기록 달성! 최고의 집사님이시네요. 👑`,
+            30: `한 달 기록 성공! 루나와의 소중한 기록이 훈장이 되었어요. 🏅`,
+          };
+          new Notification("MyLoveCat", {
+            body: (messages as any)[streak],
+            icon: `${import.meta.env.BASE_URL}icon.svg`,
+          });
+          localStorage.setItem(notifiedKey, "true");
+        }
+      }
+    });
+
+    // Weekly Report Automation
+    const today = new Date();
+    const isMonday = today.getDay() === 1;
+    const currentWeekKey = `${today.getFullYear()}-W${Math.ceil(today.getDate() / 7)}`;
+
+    if (
+      isMonday &&
+      data.settings.weeklyReportEnabled &&
+      syncStatus.signedIn &&
+      lastReportWeekRef.current !== currentWeekKey
+    ) {
+      const generateReports = async () => {
+        const lastMonday = addDays(todayString(), -7);
+        const lastSunday = addDays(todayString(), -1);
+
+        let successCount = 0;
+        for (const cat of data.cats) {
+          const weekRecords = data.records.filter(
+            (r) => r.catId === cat.id && r.date >= lastMonday && r.date <= lastSunday,
+          );
+          if (weekRecords.length > 0) {
+            const reportText = buildVetReportText(cat, weekRecords, lastMonday, lastSunday);
+            const filename = `Report_${cat.name}_${lastMonday}_to_${lastSunday}.txt`;
+            const ok = await syncService.uploadReport(filename, reportText);
+            if (ok) successCount++;
+          }
+        }
+
+        if (successCount > 0) {
+          setToast({ tone: "success", message: `지난주 리포트 ${successCount}건이 구글 드라이브에 저장되었습니다.` });
+          localStorage.setItem("mylovecat:last_report_week", currentWeekKey);
+          lastReportWeekRef.current = currentWeekKey;
+        }
+      };
+      void generateReports();
+    }
+  }, [data.records, data.cats, data.settings.weeklyReportEnabled, syncStatus.signedIn, storageReady]);
 
   useEffect(() => {
     let cancelled = false;

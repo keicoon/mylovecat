@@ -24,6 +24,7 @@ export const emptyData: AppData = {
   settings: {
     reminderTime: "21:00",
     theme: "system",
+    weeklyReportEnabled: true,
   },
 };
 
@@ -168,6 +169,7 @@ function normalizeData(data: Partial<AppData>): AppData {
       theme: isThemeMode(data.settings?.theme) ? data.settings.theme : "system",
       customTheme: normalizeCustomTheme(data.settings?.customTheme),
       lastReminderDate: data.settings?.lastReminderDate,
+      weeklyReportEnabled: data.settings?.weeklyReportEnabled ?? true,
     },
   };
 }

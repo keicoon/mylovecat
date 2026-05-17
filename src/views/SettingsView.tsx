@@ -213,7 +213,7 @@ export function SettingsView({
           <h2>알림</h2>
         </div>
         <div className="setting-line">
-          <label htmlFor="reminder">기록 시간</label>
+          <label htmlFor="reminder">{t("settings.reminder.title") || "기록 알림"}</label>
           <input
             id="reminder"
             className="date-input"
@@ -223,6 +223,21 @@ export function SettingsView({
               onDataChange((current) => ({
                 ...current,
                 settings: { ...current.settings, reminderTime: event.target.value },
+              }))
+            }
+          />
+        </div>
+        <div className="setting-line">
+          <label htmlFor="weekly-report">주간 리포트 자동 저장</label>
+          <input
+            id="weekly-report"
+            type="checkbox"
+            className="toggle-input"
+            checked={data.settings.weeklyReportEnabled}
+            onChange={(event) =>
+              onDataChange((current) => ({
+                ...current,
+                settings: { ...current.settings, weeklyReportEnabled: event.target.checked },
               }))
             }
           />

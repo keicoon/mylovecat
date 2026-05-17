@@ -73,6 +73,7 @@ export interface AppSettings {
   theme: ThemeMode;
   customTheme?: CustomTheme;
   lastReminderDate?: string;
+  weeklyReportEnabled?: boolean;
 }
 
 export interface AppData {

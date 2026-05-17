@@ -60,13 +60,12 @@ class GoogleSyncService {
       await new Promise((resolve) => gapi.load("client", resolve));
       await gapi.client.init({ discoveryDocs: DISCOVERY_DOCS });
       gapiInitialized = true;
-      
-      // If we have a saved token, try to set it
+
       if (this.currentAccessToken) {
         gapi.client.setToken({ access_token: this.currentAccessToken });
         this.status.signedIn = true;
       }
-      
+
       this.checkInternalStatus();
     } catch (e) {
       this.status.error = "Google API 초기화 실패";
@@ -123,9 +122,6 @@ class GoogleSyncService {
     }
   }
 
-  /**
-   * Main sync function: Download remote, merge with local, and upload back.
-   */
   async sync(localData: AppData): Promise<AppData | null> {
     if (!gapiInitialized || !this.status.signedIn) return null;
 
@@ -137,30 +133,23 @@ class GoogleSyncService {
       const fileId = await this.findSyncFile();
 
       if (fileId) {
-        // Download remote data
         const res = await gapi.client.drive.files.get({
           fileId: fileId,
           alt: "media",
         });
         const remoteData = res.result as AppData;
-
-        // Merge logic
         const merged = this.mergeData(localData, remoteData);
-        
-        // Upload merged data back to cloud
         await this.upload(fileId, merged);
-        
+
         this.status.lastSyncedAt = new Date().toISOString();
         return merged;
       } else {
-        // First time sync: Upload current local data
         await this.createFile(localData);
         this.status.lastSyncedAt = new Date().toISOString();
         return localData;
       }
     } catch (error: any) {
       if (error.status === 401) {
-        // Token expired
         this.status.signedIn = false;
         this.currentAccessToken = null;
         localStorage.removeItem(TOKEN_STORAGE_KEY);
@@ -175,12 +164,9 @@ class GoogleSyncService {
     }
   }
 
-  /**
-   * Direct upload (Background backup)
-   */
   async uploadOnly(data: AppData): Promise<boolean> {
     if (!gapiInitialized || !this.status.signedIn) return false;
-    
+
     try {
       const fileId = await this.findSyncFile();
       if (fileId) {
@@ -193,6 +179,68 @@ class GoogleSyncService {
     } catch {
       return false;
     }
+  }
+
+  async uploadReport(filename: string, content: string): Promise<boolean> {
+    if (!gapiInitialized || !this.status.signedIn) return false;
+
+    try {
+      const folderId = await this.findOrCreateFolder("MyLoveCat Reports");
+      const boundary = "foo_bar_baz_report";
+      const delimiter = "\r\n--" + boundary + "\r\n";
+      const close_delim = "\r\n--" + boundary + "--";
+
+      const metadata = {
+        name: filename,
+        parents: [folderId],
+        mimeType: "text/plain",
+      };
+
+      const multipartRequestBody =
+        delimiter +
+        "Content-Type: application/json\r\n\r\n" +
+        JSON.stringify(metadata) +
+        delimiter +
+        "Content-Type: text/plain\r\n\r\n" +
+        content +
+        close_delim;
+
+      await gapi.client.request({
+        path: "/upload/drive/v3/files",
+        method: "POST",
+        params: { uploadType: "multipart" },
+        headers: { "Content-Type": 'multipart/related; boundary="' + boundary + '"' },
+        body: multipartRequestBody,
+      });
+      return true;
+    } catch (error) {
+      console.error("Report upload failed", error);
+      return false;
+    }
+  }
+
+  private async findOrCreateFolder(folderName: string): Promise<string> {
+    const response = await gapi.client.drive.files.list({
+      q: `name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+      fields: "files(id)",
+    });
+
+    const files = response.result.files;
+    if (files && files.length > 0) {
+      return files[0].id;
+    }
+
+    const folderMetadata = {
+      name: folderName,
+      mimeType: "application/vnd.google-apps.folder",
+    };
+
+    const createResponse = await gapi.client.drive.files.create({
+      resource: folderMetadata,
+      fields: "id",
+    });
+
+    return createResponse.result.id;
   }
 
   private async findSyncFile(): Promise<string | null> {
@@ -212,8 +260,12 @@ class GoogleSyncService {
     const metadata = { name: "mylovecat_sync.json", parents: ["appDataFolder"] };
 
     const multipartRequestBody =
-      delimiter + "Content-Type: application/json\r\n\r\n" + JSON.stringify(metadata) +
-      delimiter + "Content-Type: application/json\r\n\r\n" + JSON.stringify(data) +
+      delimiter +
+      "Content-Type: application/json\r\n\r\n" +
+      JSON.stringify(metadata) +
+      delimiter +
+      "Content-Type: application/json\r\n\r\n" +
+      JSON.stringify(data) +
       close_delim;
 
     return gapi.client.request({
