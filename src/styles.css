@@ -1730,10 +1730,21 @@ th {
   gap: 8px;
 }
 
-.track-layout,
-.settings-layout {
-  display: grid;
-  gap: 18px;
+.health-summary-panel {
+  border: 1px solid var(--soft-line);
+  background: linear-gradient(to bottom right, var(--surface), var(--base));
+}
+
+.summary-text {
+  font-size: 14.5px;
+  font-weight: 500;
+}
+
+/* Custom Icon Hover/Active States */
+.field-block:hover svg {
+  color: var(--green);
+  transform: scale(1.1);
+  transition: all 0.2s ease;
 }
 
 .public-table-wrap {

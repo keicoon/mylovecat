@@ -123,3 +123,34 @@ export function formatBytes(value: number) {
   if (value < 1024 * 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)}MB`;
   return `${(value / 1024 / 1024 / 1024).toFixed(1)}GB`;
 }
+
+export function getWeeklyHealthSummary(records: DailyRecord[]): string {
+  if (records.length === 0) return "아직 기록이 없어요. 루나의 첫 기록을 시작해 보세요!";
+
+  const latestRecords = records.slice(0, 7);
+  const alerts = latestRecords.flatMap((r) => getAttentionItems(r));
+  const uniqueAlerts = Array.from(new Set(alerts));
+
+  const appetiteDecreased = latestRecords.filter((r) => r.items.appetite === "decreased").length;
+  const vomitCount = latestRecords.filter((r) => r.items.vomit).length;
+  const waterDecreased = latestRecords.filter((r) => r.items.waterIntake === "decreased").length;
+
+  let summary = "최근 7일 요약: ";
+
+  if (uniqueAlerts.length === 0) {
+    summary += "모든 지표가 아주 좋아요! 평온한 일상을 보내고 있네요. 🐾";
+  } else {
+    const issues = [];
+    if (appetiteDecreased >= 2) issues.push("식욕이 줄어든 날이 잦아요");
+    if (vomitCount >= 2) issues.push("구토가 반복되고 있어요");
+    if (waterDecreased >= 2) issues.push("음수량이 평소보다 낮아요");
+
+    if (issues.length > 0) {
+      summary += `${issues.join(", ")}. 주의 깊은 관찰이 필요해요.`;
+    } else {
+      summary += `특이사항(${uniqueAlerts.join(", ")})이 간헐적으로 보이지만 전반적으로 안정적이에요.`;
+    }
+  }
+
+  return summary;
+}

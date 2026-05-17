@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Copy, Printer, Share2 } from "lucide-react";
+import { Copy, Printer, Share2, Sparkles } from "lucide-react";
 import type { CatProfile, DailyRecord } from "../types";
 import { addDays } from "../storage";
 import {
@@ -10,6 +10,7 @@ import {
   formatCondition,
   formatSex,
   buildVetReportText,
+  getWeeklyHealthSummary,
 } from "../logic";
 import { Kpi, EmptyLine } from "../components/CommonUI";
 import { Segmented } from "../components/Segmented";
@@ -38,9 +39,22 @@ export function TrackView({
   const latestWeight = [...visible].reverse().find((record) => record.items.weightKg !== undefined)?.items.weightKg;
   const alertDays = visible.filter((record) => getAttentionItems(record).length).length;
   const vomitCount = visible.filter((record) => record.items.vomit).length;
+  const healthSummary = getWeeklyHealthSummary(visible);
 
   return (
     <section className="track-grid">
+      <div className="panel span-2 health-summary-panel">
+        <div className="panel-head compact">
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Sparkles size={18} color="var(--amber)" />
+            <h3 style={{ margin: 0 }}>건강 리포트 요약</h3>
+          </div>
+        </div>
+        <p className="summary-text" style={{ padding: "0 16px 16px", color: "var(--muted)", lineHeight: 1.6 }}>
+          {healthSummary}
+        </p>
+      </div>
+
       <div className="panel span-2">
         <div className="panel-head">
           <div>

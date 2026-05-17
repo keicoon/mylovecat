@@ -1,20 +1,23 @@
 import React, { useEffect, useState } from "react";
 import type { CSSProperties, ChangeEvent } from "react";
 import {
-  Activity,
   Camera,
   Check,
   CircleAlert,
-  Droplets,
-  HeartPulse,
   Image as ImageIcon,
-  PawPrint,
-  Pill,
   RotateCcw,
   Save,
-  Utensils,
-  Weight,
 } from "lucide-react";
+import {
+  CatAppetiteIcon,
+  CatWaterIcon,
+  CatLitterIcon,
+  CatActivityIcon,
+  CatConditionIcon,
+  CatVomitIcon,
+  CatWeightIcon,
+  CatMedIcon,
+} from "../components/CatIcons";
 import type { AppData, CatProfile, DailyRecord, RecordField, RecordItems, RelativeValue, ConditionValue } from "../types";
 import { recordFieldLabels, coreRecordFieldOrder, advancedRecordFieldOrder } from "../types";
 import {
@@ -315,7 +318,7 @@ function RecordInputField({
 }) {
   if (field === "appetite") {
     return (
-      <FieldBlock icon={<Utensils size={19} />} title="식욕">
+      <FieldBlock icon={<CatAppetiteIcon size={20} />} title="식욕">
         <Segmented value={items.appetite} options={relativeOptions} onChange={(value) => onSetItem("appetite", value as RelativeValue)} />
       </FieldBlock>
     );
@@ -323,7 +326,7 @@ function RecordInputField({
 
   if (field === "waterIntake") {
     return (
-      <FieldBlock icon={<Droplets size={19} />} title="물 섭취">
+      <FieldBlock icon={<CatWaterIcon size={20} />} title="물 섭취">
         <Segmented value={items.waterIntake} options={relativeOptions} onChange={(value) => onSetItem("waterIntake", value as RelativeValue)} />
       </FieldBlock>
     );
@@ -331,7 +334,7 @@ function RecordInputField({
 
   if (field === "stoolCount") {
     return (
-      <FieldBlock icon={<PawPrint size={19} />} title="배변">
+      <FieldBlock icon={<CatLitterIcon size={20} />} title="배변">
         <Segmented value={items.stoolCount} options={countOptions} onChange={(value) => onSetItem("stoolCount", value as any)} />
       </FieldBlock>
     );
@@ -339,7 +342,7 @@ function RecordInputField({
 
   if (field === "urineCount") {
     return (
-      <FieldBlock icon={<Droplets size={19} />} title="소변">
+      <FieldBlock icon={<CatWaterIcon size={20} />} title="소변">
         <Segmented value={items.urineCount} options={countOptions} onChange={(value) => onSetItem("urineCount", value as any)} />
       </FieldBlock>
     );
@@ -347,7 +350,7 @@ function RecordInputField({
 
   if (field === "activity") {
     return (
-      <FieldBlock icon={<Activity size={19} />} title="활동량">
+      <FieldBlock icon={<CatActivityIcon size={20} />} title="활동량">
         <Segmented value={items.activity} options={relativeOptions} onChange={(value) => onSetItem("activity", value as RelativeValue)} />
       </FieldBlock>
     );
@@ -355,7 +358,7 @@ function RecordInputField({
 
   if (field === "foodSnackAmount") {
     return (
-      <FieldBlock icon={<Utensils size={19} />} title="사료/간식">
+      <FieldBlock icon={<CatAppetiteIcon size={20} />} title="사료/간식">
         <Segmented
           value={items.foodSnackAmount}
           options={relativeOptions}
@@ -367,7 +370,7 @@ function RecordInputField({
 
   if (field === "condition") {
     return (
-      <FieldBlock icon={<HeartPulse size={19} />} title="컨디션">
+      <FieldBlock icon={<CatConditionIcon size={20} />} title="컨디션">
         <Segmented value={items.condition} options={conditionOptions} onChange={(value) => onSetItem("condition", value as ConditionValue)} />
       </FieldBlock>
     );
@@ -375,7 +378,7 @@ function RecordInputField({
 
   if (field === "vomit") {
     return (
-      <FieldBlock icon={<CircleAlert size={19} />} title="구토">
+      <FieldBlock icon={<CatVomitIcon size={20} />} title="구토">
         <Segmented
           value={items.vomit}
           options={[
@@ -390,7 +393,7 @@ function RecordInputField({
 
   if (field === "medicationTaken") {
     return (
-      <FieldBlock icon={<Pill size={19} />} title="약 복용">
+      <FieldBlock icon={<CatMedIcon size={20} />} title="약 복용">
         <Segmented
           value={items.medicationTaken}
           options={[
@@ -405,7 +408,7 @@ function RecordInputField({
 
   if (field === "weightKg") {
     return (
-      <FieldBlock icon={<Weight size={19} />} title="체중">
+      <FieldBlock icon={<CatWeightIcon size={20} />} title="체중">
         <div className="weight-input-wrap">
           <input
             className="weight-input"
