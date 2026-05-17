@@ -46,7 +46,7 @@ export function SettingsView({
 }) {
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [storageText, setStorageText] = useState("계산 전");
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>({ signedIn: false, isSyncing: false });
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({ signedIn: false, isSyncing: false, isConfigured: false });
   const editingCat = data.cats.find((cat) => cat.id === editingCatId);
   const exportMonth = monthKey(selectedDate);
 
