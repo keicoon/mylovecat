@@ -1625,9 +1625,35 @@ th {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border-style: dashed;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
   color: var(--muted);
   font-weight: 820;
+}
+
+.ad-wrapper {
+  overflow: hidden;
+  margin: 18px 0;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.app-ad {
+  max-width: 1040px;
+  margin-top: 24px;
+}
+
+.ad-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.track-layout,
+.settings-layout {
+  display: grid;
+  gap: 18px;
 }
 
 .public-table-wrap {
