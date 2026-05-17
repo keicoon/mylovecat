@@ -81,10 +81,6 @@ export function CatForm({
         {imageError ? <p className="form-error">{imageError}</p> : null}
       </div>
       <label>
-        이름
-        <input value={name} onChange={(event) => setName(event.target.value)} placeholder="예: 루나" />
-      </label>
-      <label>
         나이
         <input
           value={ageYears}
@@ -93,7 +89,7 @@ export function CatForm({
           type="number"
           min="0"
           step="0.1"
-          placeholder="세"
+          placeholder="세 (예: 2.5)"
         />
       </label>
       <div className="form-group">

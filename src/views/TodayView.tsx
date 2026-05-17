@@ -436,7 +436,7 @@ function RecordInputField({
             type="number"
             inputMode="decimal"
             step="0.01"
-            placeholder="0.00"
+            placeholder="0.00kg (소수점 가능)"
             value={items.weightKg ?? ""}
             onChange={(event) => onSetItem("weightKg", event.target.value ? Number(event.target.value) : undefined)}
           />

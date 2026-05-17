@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Cat, ClipboardCheck, CalendarDays, LineChart, Settings, BookOpen, LayoutDashboard } from "lucide-react";
+import { Cat, ClipboardCheck, CalendarDays, LineChart, Settings, BookOpen } from "lucide-react";
 import type { AppData, CatProfile, DailyRecord, ThemeMode } from "./types";
 import PublicPages, { isPublicPath } from "./PublicPages";
 import { applyCustomThemeToRoot } from "./theme";
@@ -33,9 +33,8 @@ import { CalendarView } from "./views/CalendarView";
 import { TrackView } from "./views/TrackView";
 import { SettingsView } from "./views/SettingsView";
 import { ContextPane } from "./views/ContextPane";
-import { DashboardView } from "./views/DashboardView";
 
-type TabId = "today" | "calendar" | "dashboard" | "track" | "settings" | "info";
+type TabId = "today" | "calendar" | "track" | "settings" | "info";
 type ToastState = { tone: "success" | "warning" | "danger"; message: string } | null;
 
 type BeforeInstallPromptEvent = Event & {
@@ -55,7 +54,6 @@ type InstallContext = {
 const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "today", label: t("tabs.today"), icon: ClipboardCheck },
   { id: "calendar", label: t("tabs.calendar"), icon: CalendarDays },
-  { id: "dashboard", label: "분석", icon: LayoutDashboard },
   { id: "track", label: t("tabs.track"), icon: LineChart },
   { id: "settings", label: t("tabs.settings"), icon: Settings },
   { id: "info", label: t("tabs.info"), icon: BookOpen },
@@ -472,7 +470,7 @@ function TrackerApp() {
 
         {!storageReady ? (
           <LoadingView />
-        ) : data.cats.length === 0 && (activeTab === "today" || activeTab === "calendar" || activeTab === "track" || activeTab === "dashboard") ? (
+        ) : data.cats.length === 0 && (activeTab === "today" || activeTab === "calendar" || activeTab === "track") ? (
           <SetupView onAddCat={addCat} />
         ) : (
           <>
@@ -501,11 +499,6 @@ function TrackerApp() {
                 }}
               />
             )}
-            {activeTab === "dashboard" && selectedCat && (
-              <div className="dashboard-layout">
-                <DashboardView cat={selectedCat} records={selectedRecords} />
-              </div>
-            )}
             {activeTab === "track" && selectedCat && (
               <div className="track-layout">
                 <TrackView cat={selectedCat} records={selectedRecords} selectedDate={selectedDate} onToast={setToast} />
@@ -525,6 +518,7 @@ function TrackerApp() {
                   installPromptAvailable={Boolean(installPrompt)}
                   installContext={installContext}
                   onInstall={openInstallPrompt}
+                  syncStatus={syncStatus}
                 />
                 <AdUnit label="설정 페이지 하단 광고" />
               </div>

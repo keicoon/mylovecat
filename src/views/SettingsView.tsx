@@ -1,15 +1,13 @@
 import React, { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
-import { Bell, Download, Monitor, Moon, Palette, Settings, ShieldCheck, Sparkles, Sun, Trash2, Upload } from "lucide-react";
-import type { AppData, CatProfile, CustomTheme, MonthlyExport, ThemeMode } from "../types";
-import { themeColorKeys, themeColorLabels } from "../theme";
+import { Bell, Download, Palette, Settings, Trash2, Upload } from "lucide-react";
+import type { AppData, CatProfile, MonthlyExport, ThemeMode } from "../types";
 import {
   buildMonthlyExport,
   downloadJson,
   estimateStorageUsage,
   mergeMonthlyExport,
   monthKey,
-  requestPersistentStorage,
 } from "../storage";
 import { formatBytes, formatSex } from "../logic";
 import { t } from "../i18n";
@@ -17,10 +15,9 @@ import { Segmented } from "../components/Segmented";
 import { CatForm } from "../components/CatForm";
 import { InstallGuideCard, InstallContext } from "../components/InstallBanner";
 import { buildThemeTemplate, normalizeCustomTheme } from "../theme";
+import { syncService, SyncStatus } from "../syncService";
 
 type ToastState = { tone: "success" | "warning" | "danger"; message: string } | null;
-
-import { syncService, SyncStatus } from "../syncService";
 
 export function SettingsView({
   data,
@@ -33,6 +30,7 @@ export function SettingsView({
   installPromptAvailable,
   installContext,
   onInstall,
+  syncStatus,
 }: {
   data: AppData;
   selectedDate: string;
@@ -44,16 +42,12 @@ export function SettingsView({
   installPromptAvailable: boolean;
   installContext: InstallContext;
   onInstall: () => void;
+  syncStatus: SyncStatus;
 }) {
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
-  const [storageText, setStorageText] = useState("계산 전");
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>({ signedIn: false, isSyncing: false, isConfigured: false });
+  const [storageText, setStorageText] = useState(t("common.loading"));
   const editingCat = data.cats.find((cat) => cat.id === editingCatId);
   const exportMonth = monthKey(selectedDate);
-
-  useEffect(() => {
-    syncService.init(setSyncStatus);
-  }, []);
 
   const handleSync = async () => {
     if (!syncStatus.signedIn) {
@@ -78,7 +72,6 @@ export function SettingsView({
           setStorageText("확인 불가");
           return;
         }
-
         setStorageText(`${formatBytes(estimate.usage)} 사용 중`);
       })
       .catch(() => setStorageText("확인 불가"));
@@ -101,7 +94,7 @@ export function SettingsView({
       onDataChange((current) => mergeMonthlyExport(current, parsed));
       onToast({ tone: "success", message: "기록 파일을 가져왔어요." });
     } catch (error) {
-      onToast({ tone: "danger", message: error instanceof Error ? error.message : "가져오기에 실패했어요." });
+      onToast({ tone: "danger", message: "가져오기에 실패했어요." });
     } finally {
       event.target.value = "";
     }
@@ -121,7 +114,7 @@ export function SettingsView({
       }));
       onToast({ tone: "success", message: `${theme.name} 테마를 적용했어요.` });
     } catch (error) {
-      onToast({ tone: "danger", message: error instanceof Error ? error.message : "테마 가져오기에 실패했어요." });
+      onToast({ tone: "danger", message: "테마 가져오기에 실패했어요." });
     } finally {
       event.target.value = "";
     }
@@ -143,20 +136,6 @@ export function SettingsView({
     onToast({
       tone: permission === "granted" ? "success" : "warning",
       message: permission === "granted" ? "알림 권한을 허용했어요." : "알림 권한이 필요해요.",
-    });
-  };
-
-  const protectStorage = async () => {
-    const persisted = await requestPersistentStorage();
-
-    if (persisted === undefined) {
-      onToast({ tone: "warning", message: "이 브라우저는 저장소 보호 요청을 지원하지 않아요." });
-      return;
-    }
-
-    onToast({
-      tone: persisted ? "success" : "warning",
-      message: persisted ? "브라우저 저장소 보호가 적용됐어요." : "브라우저가 저장소 보호 요청을 거부했어요.",
     });
   };
 
@@ -205,15 +184,16 @@ export function SettingsView({
               </div>
             </div>
           ))}
+          {data.cats.length === 0 && <p className="helper-text">등록된 고양이가 없어요.</p>}
         </div>
       </div>
 
       <div className="panel">
         <div className="panel-head compact">
-          <h2>알림</h2>
+          <h2>알림 설정</h2>
         </div>
         <div className="setting-line">
-          <label htmlFor="reminder">{t("settings.reminder.title") || "기록 알림"}</label>
+          <label htmlFor="reminder">매일 기록 알림 시간</label>
           <input
             id="reminder"
             className="date-input"
@@ -232,7 +212,6 @@ export function SettingsView({
           <input
             id="weekly-report"
             type="checkbox"
-            className="toggle-input"
             checked={data.settings.weeklyReportEnabled}
             onChange={(event) =>
               onDataChange((current) => ({
@@ -242,9 +221,9 @@ export function SettingsView({
             }
           />
         </div>
-        <button className="soft-button" onClick={requestNotification}>
+        <button className="soft-button" style={{ marginTop: "12px" }} onClick={requestNotification}>
           <Bell size={18} aria-hidden="true" />
-          알림 허용
+          브라우저 알림 권한 허용
         </button>
       </div>
 
@@ -273,48 +252,16 @@ export function SettingsView({
               }))
             }
           />
-          <div className="theme-preview" aria-hidden="true">
-            <Monitor size={18} />
-            <Sun size={18} />
-            <Moon size={18} />
-            <Sparkles size={18} />
-          </div>
-          <ThemeSwatches theme={data.settings.customTheme} />
-          <div className="button-stack">
+          <div className="button-stack" style={{ marginTop: "16px" }}>
             <label className="soft-button file-button">
               <Palette size={18} aria-hidden="true" />
-              테마 가져오기
+              커스텀 테마 가져오기
               <input type="file" accept="application/json" onChange={handleThemeImport} />
             </label>
             <button className="soft-button" onClick={handleThemeExport}>
               <Download size={18} aria-hidden="true" />
-              테마 내보내기
+              현재 테마 내보내기
             </button>
-          </div>
-
-          <div className="theme-guide">
-            <h3>커스텀 테마 가이드</h3>
-            <p>
-              JSON 파일을 편집하여 나만의 테마를 만들 수 있습니다. 아래 포맷의 파일을 작성하여
-              '테마 가져오기'로 적용해 보세요.
-            </p>
-            <code className="theme-code">
-              {`{
-  "schemaVersion": 1,
-  "app": "mylovecat-theme",
-  "name": "나의 테마 이름",
-  "colors": {
-    "base": "#f8fbfb",
-    "surface": "#ffffff",
-    "brand": "#283d3a",
-    "green": "#168f83",
-    "coral": "#ff6f91"
-  }
-}`}
-            </code>
-            <p>
-              현재 적용된 테마를 '내보내기' 하여 원본 파일을 확인하고 수정하는 방식을 권장합니다.
-            </p>
           </div>
         </div>
       </div>
@@ -353,45 +300,24 @@ export function SettingsView({
 
       <div className="panel">
         <div className="panel-head compact">
-          <h2>데이터</h2>
+          <h2>데이터 관리</h2>
         </div>
         <div className="storage-meter">
-          <span>로컬 저장소</span>
+          <span>기기 내부 저장소</span>
           <strong>{storageText}</strong>
         </div>
         <div className="button-stack">
-          <button className="soft-button" onClick={protectStorage}>
-            <ShieldCheck size={18} aria-hidden="true" />
-            저장소 보호
-          </button>
           <button className="soft-button" onClick={handleExport}>
             <Download size={18} aria-hidden="true" />
-            {exportMonth} 내보내기
+            {exportMonth} 백업 JSON 내보내기
           </button>
           <label className="soft-button file-button">
             <Upload size={18} aria-hidden="true" />
-            JSON 가져오기
+            백업 JSON 가져오기
             <input type="file" accept="application/json" onChange={handleImport} />
           </label>
-          {installPromptAvailable ? (
-            <button className="soft-button" onClick={onInstall}>
-              <Download size={18} aria-hidden="true" />앱 설치
-            </button>
-          ) : null}
         </div>
       </div>
     </section>
-  );
-}
-
-function ThemeSwatches({ theme }: { theme?: CustomTheme }) {
-  const colors = theme?.colors ?? buildThemeTemplate().colors;
-
-  return (
-    <div className="theme-swatches" aria-label="커스텀 테마 색상 미리보기">
-      {themeColorKeys.slice(0, 8).map((key) => (
-        <span key={key} title={themeColorLabels[key]} style={{ background: colors[key] }} />
-      ))}
-    </div>
   );
 }

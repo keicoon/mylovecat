@@ -2,7 +2,7 @@ import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { CatProfile, DailyRecord } from "../types";
 import { coreRecordFieldOrder } from "../types";
-import { monthStartWeekday, filledCoreCount } from "../storage";
+import { monthStartWeekday, filledCoreCount, todayString } from "../storage";
 import { getAttentionItems, shiftMonth } from "../logic";
 
 export function CalendarView({
@@ -23,6 +23,8 @@ export function CalendarView({
   const recordMap = new Map(records.filter((record) => record.date.startsWith(month)).map((record) => [record.date, record]));
   const firstWeekday = monthStartWeekday(month);
   const dayCount = Number(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate());
+  const today = todayString();
+  
   const cells = [
     ...Array.from({ length: firstWeekday }, (_, index) => ({ type: "blank" as const, key: `blank-${index}` })),
     ...Array.from({ length: dayCount }, (_, index) => {
@@ -61,24 +63,32 @@ export function CalendarView({
           const record = recordMap.get(cell.date);
           const alerts = record ? getAttentionItems(record) : [];
           const complete = record ? filledCoreCount(record.items) : 0;
+          const isToday = cell.date === today;
 
           return (
             <button
               className={`calendar-cell ${selectedDate === cell.date ? "is-selected" : ""} ${
                 record ? "has-record" : ""
-              } ${alerts.length ? "has-alert" : ""}`}
+              } ${alerts.length ? "has-alert" : ""} ${isToday ? "is-today" : ""}`}
               key={cell.date}
               onClick={() => onDateSelect(cell.date)}
             >
-              <span>{Number(cell.date.slice(8, 10))}</span>
+              <span className="date-num">{Number(cell.date.slice(8, 10))}</span>
               {record ? (
-                <small>
-                  {alerts.length
-                    ? `주의 ${alerts.length}`
-                    : record.items.note || record.items.photos?.length
-                      ? "특이사항"
-                      : `${complete}/${coreRecordFieldOrder.length}`}
-                </small>
+                <div className="cell-status">
+                  {alerts.length > 0 ? (
+                    <span className="alert-dot" />
+                  ) : (
+                    <span className="check-dot" />
+                  )}
+                  <small>
+                    {alerts.length
+                      ? `주의 ${alerts.length}`
+                      : record.items.note || record.items.photos?.length
+                        ? "특이사항"
+                        : `${complete}/${coreRecordFieldOrder.length}`}
+                  </small>
+                </div>
               ) : null}
             </button>
           );
