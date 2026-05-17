@@ -16,6 +16,7 @@ import {
   todayString,
 } from "./storage";
 import { shiftMonth } from "./logic";
+import { t } from "./i18n";
 
 // Components
 import { LoadingView, Toast } from "./components/CommonUI";
@@ -49,11 +50,11 @@ type InstallContext = {
 };
 
 const tabs: Array<{ id: TabId; label: string; icon: any }> = [
-  { id: "today", label: "기록", icon: ClipboardCheck },
-  { id: "calendar", label: "캘린더", icon: CalendarDays },
-  { id: "track", label: "추적", icon: LineChart },
-  { id: "settings", label: "설정", icon: Settings },
-  { id: "info", label: "정보", icon: BookOpen },
+  { id: "today", label: t("tabs.today"), icon: ClipboardCheck },
+  { id: "calendar", label: t("tabs.calendar"), icon: CalendarDays },
+  { id: "track", label: t("tabs.track"), icon: LineChart },
+  { id: "settings", label: t("tabs.settings"), icon: Settings },
+  { id: "info", label: t("tabs.info"), icon: BookOpen },
 ];
 
 function isStandaloneDisplay() {

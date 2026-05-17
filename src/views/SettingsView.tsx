@@ -12,6 +12,7 @@ import {
   requestPersistentStorage,
 } from "../storage";
 import { formatBytes, formatSex } from "../logic";
+import { t } from "../i18n";
 import { Segmented } from "../components/Segmented";
 import { CatForm } from "../components/CatForm";
 import { InstallGuideCard, InstallContext } from "../components/InstallBanner";
@@ -234,17 +235,17 @@ export function SettingsView({
 
       <div className="panel">
         <div className="panel-head compact">
-          <h2>화면</h2>
+          <h2>{t("settings.theme.title")}</h2>
         </div>
         <div className="theme-control">
           <Segmented
             value={data.settings.theme}
             options={[
-              { value: "system" as const, label: "자동" },
-              { value: "light" as const, label: "라이트" },
-              { value: "dark" as const, label: "다크" },
-              { value: "calico" as const, label: "고양이" },
-              { value: "custom" as const, label: "커스텀" },
+              { value: "system" as const, label: t("settings.theme.system") },
+              { value: "light" as const, label: t("settings.theme.light") },
+              { value: "dark" as const, label: t("settings.theme.dark") },
+              { value: "calico" as const, label: t("settings.theme.calico") },
+              { value: "custom" as const, label: t("settings.theme.custom") },
             ]}
             onChange={(theme: ThemeMode) =>
               onDataChange((current) => ({
@@ -307,19 +308,19 @@ export function SettingsView({
 
       <div className="panel">
         <div className="panel-head compact">
-          <h2>클라우드 동기화</h2>
+          <h2>{t("settings.sync.title")}</h2>
         </div>
         <p className="helper-text" style={{ marginBottom: "12px" }}>
-          Google Drive를 통해 여러 기기(모바일, PC) 간에 데이터를 동기화합니다. 데이터는 사용자의 Google Drive에만 안전하게 보관됩니다.
+          {t("settings.sync.description")}
         </p>
         <div className="button-stack">
           <button className={`soft-button ${syncStatus.signedIn ? "is-active" : ""}`} onClick={handleSync} disabled={syncStatus.isSyncing}>
             <Upload size={18} aria-hidden="true" />
-            {syncStatus.signedIn ? (syncStatus.isSyncing ? "동기화 중..." : "지금 동기화") : "Google 로그인하여 동기화"}
+            {syncStatus.signedIn ? (syncStatus.isSyncing ? t("common.loading") : t("settings.sync.syncNow")) : t("settings.sync.login")}
           </button>
           {syncStatus.signedIn && (
             <button className="micro-button" onClick={() => syncService.signOut()}>
-              로그아웃
+              {t("settings.sync.logout")}
             </button>
           )}
         </div>
@@ -330,7 +331,7 @@ export function SettingsView({
         )}
         {syncStatus.lastSyncedAt && (
           <p className="helper-text" style={{ marginTop: "8px" }}>
-            마지막 동기화: {new Date(syncStatus.lastSyncedAt).toLocaleString()}
+            {t("settings.sync.lastSynced")}: {new Date(syncStatus.lastSyncedAt).toLocaleString()}
           </p>
         )}
       </div>
