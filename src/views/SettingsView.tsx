@@ -323,6 +323,11 @@ export function SettingsView({
             </button>
           )}
         </div>
+        {syncStatus.error && (
+          <p className="form-error" style={{ marginTop: "12px", color: "var(--coral)" }}>
+            {syncStatus.error}
+          </p>
+        )}
         {syncStatus.lastSyncedAt && (
           <p className="helper-text" style={{ marginTop: "8px" }}>
             마지막 동기화: {new Date(syncStatus.lastSyncedAt).toLocaleString()}

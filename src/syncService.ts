@@ -1,5 +1,5 @@
 import type { AppData } from "./types";
-import { emptyData, mergeMonthlyExport, saveData } from "./storage";
+import { mergeMonthlyExport } from "./storage";
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const SCOPES = "https://www.googleapis.com/auth/drive.appdata";
@@ -14,55 +14,85 @@ export interface SyncStatus {
   userEmail?: string;
   lastSyncedAt?: string;
   isSyncing: boolean;
+  error?: string;
+  isConfigured: boolean;
 }
 
 class GoogleSyncService {
   private status: SyncStatus = {
     signedIn: false,
     isSyncing: false,
+    isConfigured: Boolean(CLIENT_ID),
   };
 
   private onStatusChange?: (status: SyncStatus) => void;
 
   init(onStatusChange: (status: SyncStatus) => void) {
     this.onStatusChange = onStatusChange;
+    if (!CLIENT_ID) {
+      this.status.error = "설정에서 Google Client ID를 입력해주세요.";
+      this.checkInternalStatus();
+      return;
+    }
     this.loadScripts();
   }
 
   private loadScripts() {
+    if (document.getElementById("gapi-script")) return;
+
     const gapiScript = document.createElement("script");
+    gapiScript.id = "gapi-script";
     gapiScript.src = "https://apis.google.com/js/api.js";
     gapiScript.onload = () => this.initializeGapi();
     document.body.appendChild(gapiScript);
 
     const gsiScript = document.createElement("script");
+    gsiScript.id = "gsi-script";
     gsiScript.src = "https://accounts.google.com/gsi/client";
     gsiScript.onload = () => this.initializeGsi();
     document.body.appendChild(gsiScript);
   }
 
   private async initializeGapi() {
-    await new Promise((resolve) => gapi.load("client", resolve));
-    await gapi.client.init({
-      discoveryDocs: DISCOVERY_DOCS,
-    });
-    gapiInitialized = true;
-    this.checkInternalStatus();
+    try {
+      await new Promise((resolve) => gapi.load("client", resolve));
+      await gapi.client.init({
+        discoveryDocs: DISCOVERY_DOCS,
+      });
+      gapiInitialized = true;
+      this.checkInternalStatus();
+    } catch (e) {
+      console.error("GAPI Init failed", e);
+      this.status.error = "Google API 초기화 실패";
+      this.checkInternalStatus();
+    }
   }
 
   private initializeGsi() {
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPES,
-      callback: async (resp: any) => {
-        if (resp.error) throw resp;
-        this.status.signedIn = true;
-        this.checkInternalStatus();
-        await this.sync();
-      },
-    });
-    gsiInitialized = true;
-    this.checkInternalStatus();
+    try {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: async (resp: any) => {
+          if (resp.error) {
+            this.status.error = `인증 에러: ${resp.error}`;
+            this.checkInternalStatus();
+            return;
+          }
+          this.status.signedIn = true;
+          this.status.error = undefined;
+          this.checkInternalStatus();
+          // Initial sync after sign in
+          // Note: AppData needs to be passed from the component if we want to merge local
+        },
+      });
+      gsiInitialized = true;
+      this.checkInternalStatus();
+    } catch (e) {
+      console.error("GSI Init failed", e);
+      this.status.error = "인증 모듈 로드 실패";
+      this.checkInternalStatus();
+    }
   }
 
   private checkInternalStatus() {
@@ -70,7 +100,16 @@ class GoogleSyncService {
   }
 
   async signIn() {
-    if (!tokenClient) return;
+    if (!tokenClient) {
+      if (!CLIENT_ID) {
+        this.status.error = "VITE_GOOGLE_CLIENT_ID 설정이 누락되었습니다.";
+      } else {
+        this.status.error = "라이브러리가 아직 로드되지 않았습니다.";
+        this.loadScripts();
+      }
+      this.checkInternalStatus();
+      return;
+    }
     tokenClient.requestAccessToken({ prompt: "consent" });
   }
 
@@ -80,19 +119,23 @@ class GoogleSyncService {
       google.accounts.oauth2.revoke(token.access_token, () => {
         gapi.client.setToken(null);
         this.status.signedIn = false;
+        this.status.error = undefined;
         this.checkInternalStatus();
       });
     }
   }
 
   async sync(localData?: AppData): Promise<AppData | null> {
-    if (!gapiInitialized || !this.status.signedIn) return null;
+    if (!gapiInitialized || !this.status.signedIn) {
+      if (!this.status.signedIn) await this.signIn();
+      return null;
+    }
 
     this.status.isSyncing = true;
+    this.status.error = undefined;
     this.checkInternalStatus();
 
     try {
-      // 1. Search for existing sync file in appDataFolder
       const response = await gapi.client.drive.files.list({
         spaces: "appDataFolder",
         fields: "files(id, name)",
@@ -103,7 +146,6 @@ class GoogleSyncService {
       let fileId = files && files.length > 0 ? files[0].id : null;
 
       if (fileId) {
-        // 2. Download remote data
         const res = await gapi.client.drive.files.get({
           fileId: fileId,
           alt: "media",
@@ -111,7 +153,6 @@ class GoogleSyncService {
         const remoteData = res.result as AppData;
 
         if (localData) {
-          // 3. Merge if local data provided
           const merged = this.mergeData(localData, remoteData);
           await this.upload(fileId, merged);
           this.status.lastSyncedAt = new Date().toISOString();
@@ -121,13 +162,13 @@ class GoogleSyncService {
           return remoteData;
         }
       } else if (localData) {
-        // 4. Create new file if doesn't exist
-        const created = await this.createFile(localData);
+        await this.createFile(localData);
         this.status.lastSyncedAt = new Date().toISOString();
         return localData;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Sync failed", error);
+      this.status.error = "동기화 실패 (권한이나 네트워크 확인)";
     } finally {
       this.status.isSyncing = false;
       this.checkInternalStatus();
@@ -173,8 +214,6 @@ class GoogleSyncService {
   }
 
   private mergeData(local: AppData, remote: AppData): AppData {
-    // Simple merge logic using existing MonthlyExport merge utility
-    // Treating remote as a master source to merge into local
     const remoteAsExport = {
       schemaVersion: 1,
       app: { name: "mylovecat", exportedAt: new Date().toISOString() },
