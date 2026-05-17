@@ -1,13 +1,11 @@
 import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { BookOpen, Cat, ClipboardList, HeartPulse, ShieldCheck } from "lucide-react";
+import { AdUnit } from "./components/AdUnit";
 
 type PublicPath = "/about" | "/guide" | "/cat-health-log-template" | "/privacy" | "/terms";
 
 const publicPaths = new Set<string>(["/about", "/guide", "/cat-health-log-template", "/privacy", "/terms"]);
-
-const ADSENSE_CLIENT = sanitizeAdSenseClient(import.meta.env.VITE_ADSENSE_CLIENT);
-const ADSENSE_SLOT_CONTENT = sanitizeAdSlot(import.meta.env.VITE_ADSENSE_SLOT_CONTENT);
 
 declare global {
   interface Window {
@@ -273,54 +271,16 @@ function PublicFooter() {
   );
 }
 
-function AdUnit({ label }: { label: string }) {
-  useEffect(() => {
-    if (!ADSENSE_CLIENT || !ADSENSE_SLOT_CONTENT) return;
-    window.adsbygoogle = window.adsbygoogle ?? [];
-    window.adsbygoogle.push({});
-  }, []);
-
-  if (!ADSENSE_CLIENT || !ADSENSE_SLOT_CONTENT) {
-    return (
-      <aside className="ad-placeholder" aria-label={label}>
-        <BookOpen size={18} aria-hidden="true" />
-        <span>AdSense 준비 영역</span>
-      </aside>
-    );
-  }
-
-  return (
-    <ins
-      className="adsbygoogle"
-      style={{ display: "block" }}
-      data-ad-client={ADSENSE_CLIENT}
-      data-ad-slot={ADSENSE_SLOT_CONTENT}
-      data-ad-format="auto"
-      data-full-width-responsive="true"
-      aria-label={label}
-    />
-  );
-}
-
 function useAdSenseScript() {
   useEffect(() => {
-    if (!ADSENSE_CLIENT || document.getElementById("mylovecat-adsense")) return;
+    const client = import.meta.env.VITE_ADSENSE_CLIENT?.trim();
+    if (!client || !/^ca-pub-\d{16}$/.test(client) || document.getElementById("mylovecat-adsense")) return;
 
     const script = document.createElement("script");
     script.id = "mylovecat-adsense";
     script.async = true;
     script.crossOrigin = "anonymous";
-    script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`;
+    script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${client}`;
     document.head.appendChild(script);
   }, []);
-}
-
-function sanitizeAdSenseClient(value: string | undefined) {
-  const trimmed = value?.trim();
-  return trimmed && /^ca-pub-\d{16}$/.test(trimmed) ? trimmed : "";
-}
-
-function sanitizeAdSlot(value: string | undefined) {
-  const trimmed = value?.trim();
-  return trimmed && /^\d{4,}$/.test(trimmed) ? trimmed : "";
 }
