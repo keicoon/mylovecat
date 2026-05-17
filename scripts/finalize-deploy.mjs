@@ -26,9 +26,6 @@ if (client) {
   if (lockedClient) {
     assert(client === lockedClient, `AdSense client mismatch. Expected ${lockedClient}, got ${client}.`);
   }
-
-  const publisherId = client.replace("ca-", "");
-  fs.writeFileSync(path.join(distDir, "ads.txt"), `google.com, ${publisherId}, DIRECT, f08c47fec0942fa0\n`);
 }
 
 function normalize(value) {

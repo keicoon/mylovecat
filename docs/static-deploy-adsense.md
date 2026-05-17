@@ -103,13 +103,9 @@ The client bundle can never hide a publisher id. To prevent accidental or unauth
 
 When `VITE_ADSENSE_CLIENT` is set and does not match `lockedClient`, the production build fails.
 
-The build also generates `dist/ads.txt` when AdSense is enabled:
+The production build validates the AdSense client ID when configured.
 
-```text
-google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
-```
-
-For AdSense, prefer a custom domain or a GitHub Pages user/organization root site so `https://your-domain.example/ads.txt` is available at the domain root. A project page such as `https://user.github.io/mylovecat/` can host the app, but `ads.txt` verification is tied to the site domain root.
+For AdSense, prefer a custom domain or a GitHub Pages user/organization root site. A project page such as `https://user.github.io/mylovecat/` can host the app, but `ads.txt` verification is tied to the site domain root. Currently, `ads.txt` generation is disabled to avoid confusion in project-page deployments.
 
 ## AdSense Review Checklist
 
