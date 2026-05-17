@@ -1499,6 +1499,31 @@ function SettingsView({
               테마 내보내기
             </button>
           </div>
+
+          <div className="theme-guide">
+            <h3>커스텀 테마 가이드</h3>
+            <p>
+              JSON 파일을 편집하여 나만의 테마를 만들 수 있습니다. 아래 포맷의 파일을 작성하여
+              '테마 가져오기'로 적용해 보세요.
+            </p>
+            <code className="theme-code">
+              {`{
+  "schemaVersion": 1,
+  "app": "mylovecat-theme",
+  "name": "나의 테마 이름",
+  "colors": {
+    "base": "#f8fbfb",
+    "surface": "#ffffff",
+    "brand": "#283d3a",
+    "green": "#168f83",
+    "coral": "#ff6f91"
+  }
+}`}
+            </code>
+            <p>
+              현재 적용된 테마를 '내보내기' 하여 원본 파일을 확인하고 수정하는 방식을 권장합니다.
+            </p>
+          </div>
         </div>
       </div>
 
