@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
-import { Bell, Download, Palette, Settings, Trash2, Upload } from "lucide-react";
+import { Bell, Download, Palette, Settings, Trash2, Upload, Database, Check } from "lucide-react";
 import type { AppData, CatProfile, MonthlyExport, ThemeMode } from "../types";
 import {
   buildMonthlyExport,
@@ -8,6 +8,7 @@ import {
   estimateStorageUsage,
   mergeMonthlyExport,
   monthKey,
+  optimizeStorage,
 } from "../storage";
 import { formatBytes, formatSex } from "../logic";
 import { t } from "../i18n";
@@ -46,6 +47,7 @@ export function SettingsView({
 }) {
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [storageText, setStorageText] = useState(t("common.loading"));
+  const [isOptimizing, setIsOptimizing] = useState(false);
   const editingCat = data.cats.find((cat) => cat.id === editingCatId);
   const exportMonth = monthKey(selectedDate);
 
@@ -54,7 +56,6 @@ export function SettingsView({
       await syncService.signIn();
       return;
     }
-
     onToast({ tone: "warning", message: "구글 드라이브와 동기화 중..." });
     const merged = await syncService.sync(data);
     if (merged) {
@@ -62,6 +63,24 @@ export function SettingsView({
       onToast({ tone: "success", message: "동기화를 완료했어요." });
     } else {
       onToast({ tone: "danger", message: "동기화에 실패했어요." });
+    }
+  };
+
+  const handleOptimize = async () => {
+    setIsOptimizing(true);
+    try {
+      const result = await optimizeStorage(data);
+      onToast({ 
+        tone: "success", 
+        message: `저장소 최적화 완료! 사용하지 않는 이미지 ${result.removed}개를 정리하여 ${formatBytes(result.sizeSaved)}를 절약했습니다.` 
+      });
+      // Refresh storage estimate
+      const estimate = await estimateStorageUsage();
+      if (estimate?.usage) setStorageText(`${formatBytes(estimate.usage)} 사용 중`);
+    } catch (e) {
+      onToast({ tone: "danger", message: "최적화 중 오류가 발생했습니다." });
+    } finally {
+      setIsOptimizing(false);
     }
   };
 
@@ -87,14 +106,13 @@ export function SettingsView({
   const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     try {
       const text = await file.text();
       const parsed = JSON.parse(text) as MonthlyExport;
       onDataChange((current) => mergeMonthlyExport(current, parsed));
       onToast({ tone: "success", message: "기록 파일을 가져왔어요." });
     } catch (error) {
-      onToast({ tone: "danger", message: "가져오기에 실패했어요." });
+      onToast({ tone: "danger", message: error instanceof Error ? error.message : "가져오기에 실패했어요." });
     } finally {
       event.target.value = "";
     }
@@ -103,7 +121,6 @@ export function SettingsView({
   const handleThemeImport = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     try {
       const text = await file.text();
       const theme = normalizeCustomTheme(JSON.parse(text));
@@ -114,7 +131,7 @@ export function SettingsView({
       }));
       onToast({ tone: "success", message: `${theme.name} 테마를 적용했어요.` });
     } catch (error) {
-      onToast({ tone: "danger", message: "테마 가져오기에 실패했어요." });
+      onToast({ tone: "danger", message: error instanceof Error ? error.message : "테마 가져오기에 실패했어요." });
     } finally {
       event.target.value = "";
     }
@@ -131,7 +148,6 @@ export function SettingsView({
       onToast({ tone: "warning", message: "이 브라우저는 알림을 지원하지 않아요." });
       return;
     }
-
     const permission = await Notification.requestPermission();
     onToast({
       tone: permission === "granted" ? "success" : "warning",
@@ -307,6 +323,10 @@ export function SettingsView({
           <strong>{storageText}</strong>
         </div>
         <div className="button-stack">
+          <button className="soft-button" onClick={handleOptimize} disabled={isOptimizing}>
+            <Database size={18} aria-hidden="true" />
+            {isOptimizing ? "정리 중..." : "저장 용량 최적화"}
+          </button>
           <button className="soft-button" onClick={handleExport}>
             <Download size={18} aria-hidden="true" />
             {exportMonth} 백업 JSON 내보내기

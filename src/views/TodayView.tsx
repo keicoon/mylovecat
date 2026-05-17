@@ -7,7 +7,6 @@ import {
   Image as ImageIcon,
   RotateCcw,
   Save,
-  Lightbulb,
 } from "lucide-react";
 import {
   CatAppetiteIcon,
@@ -67,19 +66,6 @@ const quickCopyFields: RecordField[] = [
   "medicationTaken",
   "foodSnackAmount",
   "condition",
-];
-
-const catTrivia = [
-  "고양이는 하루에 약 12~16시간을 자며 시간을 보냅니다.",
-  "고양이의 코 무늬(비문)는 사람의 지문처럼 모두 다릅니다.",
-  "고양이는 단맛을 느끼는 미각 세포가 없습니다.",
-  "고양이가 가르랑거리는 소리는 뼈의 밀도를 높이고 치유를 돕는 효과가 있습니다.",
-  "고양이는 수직으로 자신의 키보다 6배나 높이 뛸 수 있습니다.",
-  "고양이는 앞발의 발가락이 5개, 뒷발의 발가락은 4개입니다.",
-  "고양이는 약 100가지의 각기 다른 소리를 낼 수 있습니다.",
-  "고양이의 귀는 180도 회전할 수 있으며, 32개의 근육으로 조절됩니다.",
-  "고양이는 무리를 짓지 않고 혼자 사냥하는 동물 중 가장 성공률이 높습니다.",
-  "고양이가 눈을 천천히 깜빡이는 것은 신뢰와 애정의 표현입니다.",
 ];
 
 export function TodayView({
@@ -206,13 +192,6 @@ export function TodayView({
         </div>
       </div>
 
-      <div className="trivia-card">
-        <div className="trivia-icon">
-          <Lightbulb size={18} />
-        </div>
-        <p>{catTrivia[new Date(selectedDate).getDate() % catTrivia.length]}</p>
-      </div>
-
       <div className="quick-actions">
         <button className="soft-button" onClick={fillFromYesterday}>
           <RotateCcw size={18} aria-hidden="true" />
@@ -224,7 +203,7 @@ export function TodayView({
         </div>
       </div>
 
-      <MobileStepInput items={draft} onSetItem={setItem} />
+      <MobileStepInput draft={draft} onSetItem={setItem} />
 
       <div className="field-grid desktop-fields">
         {coreRecordFieldOrder.map((field) => (
@@ -288,10 +267,10 @@ export function TodayView({
 
 type SetRecordItem = <K extends keyof RecordItems>(key: K, value: RecordItems[K] | undefined) => void;
 
-function MobileStepInput({ items, onSetItem }: { items: RecordItems; onSetItem: SetRecordItem }) {
+function MobileStepInput({ draft, onSetItem }: { draft: RecordItems; onSetItem: SetRecordItem }) {
   const [step, setStep] = useState(0);
   const field = coreRecordFieldOrder[step];
-  const value = items[field];
+  const value = draft[field];
 
   const setAndAdvance: SetRecordItem = (key, nextValue) => {
     onSetItem(key, nextValue);
@@ -311,7 +290,7 @@ function MobileStepInput({ items, onSetItem }: { items: RecordItems; onSetItem: 
         </div>
         <small>{value === undefined ? "미입력" : "입력됨"}</small>
       </div>
-      <RecordInputField field={field} items={items} onSetItem={setAndAdvance} />
+      <RecordInputField field={field} items={draft} onSetItem={setAndAdvance} />
       <div className="step-actions">
         <button className="soft-button" onClick={() => setStep((current) => Math.max(0, current - 1))} disabled={step === 0}>
           이전

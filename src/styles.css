@@ -1741,25 +1741,40 @@ th {
 
 /* Show guide for pending AdSense ads */
 .adsbygoogle:empty {
-  display: block;
-  min-height: 100px;
-  border: 1px dashed var(--line);
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  border: 2px dashed var(--line);
+  background: rgba(0, 0, 0, 0.03);
   position: relative;
-  border-radius: 8px;
+  border-radius: 12px;
+  margin: 10px 0;
 }
 
 .adsbygoogle:empty::before {
-  content: "Google AdSense 광고가 게시될 위치입니다 (승인 대기 중)";
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: absolute;
-  inset: 0;
+  content: "Google AdSense 광고가 게시될 위치입니다\n(구글 승인 후 실제 광고가 표시됩니다)";
+  white-space: pre-wrap;
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 700;
   text-align: center;
   padding: 20px;
+  line-height: 1.6;
+}
+
+.ad-placeholder {
+  display: flex;
+  min-height: 120px;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 2px dashed var(--coral);
+  border-radius: 12px;
+  background: rgba(240, 93, 94, 0.05);
+  color: var(--coral);
+  font-weight: 850;
+  margin: 10px 0;
 }
 
 .app-ad {

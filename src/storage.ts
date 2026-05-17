@@ -12,7 +12,7 @@ import { isThemeMode, normalizeCustomTheme } from "./theme";
 
 const LOCAL_STORAGE_KEY = "mylovecat:data:v1";
 const DB_NAME = "mylovecat";
-const DB_VERSION = 2; // Upgraded version
+const DB_VERSION = 2;
 const STORE_APP = "app";
 const STORE_RECORDS = "records";
 const STORE_IMAGES = "images";
@@ -35,18 +35,12 @@ export async function loadData(): Promise<AppData> {
 
   try {
     const db = await openDatabase();
-    
-    // Check if migration is needed from state:v1
     const oldData = await idbGet<AppData>(db, STORE_APP, APP_DATA_KEY);
     
     if (oldData && oldData.records.length > 0) {
-      // Migrate old monolithic data to granular stores
       await migrateToGranular(db, oldData);
-      // After migration, we can delete the old monolithic key or keep it as backup.
-      // For safety, we keep it but it won't be used anymore.
     }
 
-    // Load granular data
     const catsAndSettings = await idbGet<{ cats: CatProfile[]; settings: any }>(db, STORE_APP, "app_state");
     const records = await idbGetAll<DailyRecord>(db, STORE_RECORDS);
 
@@ -57,7 +51,6 @@ export async function loadData(): Promise<AppData> {
       });
     }
 
-    // Fallback to localStorage if no DB data
     const local = loadLocalData();
     if (local.exists) {
       await migrateToGranular(db, local.data);
@@ -80,17 +73,11 @@ export async function saveData(data: AppData) {
 
   try {
     const db = await openDatabase();
-    
-    // Save cats and settings
     await idbSet(db, STORE_APP, "app_state", {
       cats: data.cats,
       settings: data.settings,
     });
 
-    // Save records granularly (only changed ones if we had a way to track, but for now we batch)
-    // To be efficient, we only save the records that are passed.
-    // In TrackerApp, saveData is called with the full AppData whenever it changes.
-    // Optimization: only put records.
     const transaction = db.transaction(STORE_RECORDS, "readwrite");
     const store = transaction.objectStore(STORE_RECORDS);
     for (const record of data.records) {
@@ -109,30 +96,22 @@ export async function saveData(data: AppData) {
 
 async function migrateToGranular(db: IDBDatabase, data: AppData) {
   const tx = db.transaction([STORE_APP, STORE_RECORDS, STORE_IMAGES], "readwrite");
-  
-  // Save app state
   tx.objectStore(STORE_APP).put({ cats: data.cats, settings: data.settings }, "app_state");
-  
-  // Save records
   const recordStore = tx.objectStore(STORE_RECORDS);
   const imageStore = tx.objectStore(STORE_IMAGES);
   
   for (const record of data.records) {
-    // Extract images if they are Base64 and move to images store
     if (record.items.photos) {
       for (const photo of record.items.photos) {
         if (photo.dataUrl.startsWith("data:")) {
           const blob = await dataUrlToBlob(photo.dataUrl);
           await imageStore.put(blob, photo.id);
-          // In the record, we can eventually remove dataUrl to save space, 
-          // but we'll keep it for now to avoid breaking UI that expects it.
         }
       }
     }
     recordStore.put(record, record.id);
   }
 
-  // Also migrate cat avatars
   for (const cat of data.cats) {
     if (cat.avatarImage?.dataUrl.startsWith("data:")) {
       const blob = await dataUrlToBlob(cat.avatarImage.dataUrl);
@@ -140,7 +119,6 @@ async function migrateToGranular(db: IDBDatabase, data: AppData) {
     }
   }
 
-  // Remove the old monolithic key
   tx.objectStore(STORE_APP).delete(APP_DATA_KEY);
 
   return new Promise<void>((resolve, reject) => {
@@ -152,7 +130,6 @@ async function migrateToGranular(db: IDBDatabase, data: AppData) {
 function loadLocalData() {
   const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
   if (!raw) return { exists: false, data: emptyData };
-
   try {
     return { exists: true, data: normalizeData(JSON.parse(raw) as Partial<AppData>) };
   } catch {
@@ -177,20 +154,12 @@ function normalizeData(data: Partial<AppData>): AppData {
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onupgradeneeded = (event) => {
+    request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_APP)) {
-        db.createObjectStore(STORE_APP);
-      }
-      if (!db.objectStoreNames.contains(STORE_RECORDS)) {
-        db.createObjectStore(STORE_RECORDS);
-      }
-      if (!db.objectStoreNames.contains(STORE_IMAGES)) {
-        db.createObjectStore(STORE_IMAGES);
-      }
+      if (!db.objectStoreNames.contains(STORE_APP)) db.createObjectStore(STORE_APP);
+      if (!db.objectStoreNames.contains(STORE_RECORDS)) db.createObjectStore(STORE_RECORDS);
+      if (!db.objectStoreNames.contains(STORE_IMAGES)) db.createObjectStore(STORE_IMAGES);
     };
-
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("IndexedDB를 열 수 없어요."));
     request.onblocked = () => reject(new Error("IndexedDB 업그레이드가 차단됐어요."));
@@ -215,10 +184,28 @@ function idbGetAll<T>(db: IDBDatabase, storeName: string): Promise<T[]> {
   });
 }
 
+function idbGetAllKeys(db: IDBDatabase, storeName: string): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeName, "readonly");
+    const request = transaction.objectStore(storeName).getAllKeys();
+    request.onsuccess = () => resolve(request.result as string[]);
+    request.onerror = () => reject(request.error);
+  });
+}
+
 function idbSet(db: IDBDatabase, storeName: string, key: string, value: any): Promise<void> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(storeName, "readwrite");
     transaction.objectStore(storeName).put(value, key);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+function idbDelete(db: IDBDatabase, storeName: string, key: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeName, "readwrite");
+    transaction.objectStore(storeName).delete(key);
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   });
@@ -236,16 +223,45 @@ export async function saveImage(id: string, blob: Blob): Promise<void> {
   await idbSet(db, STORE_IMAGES, id, blob);
 }
 
-export function makeId(prefix: string) {
-  if ("crypto" in window && "randomUUID" in crypto) {
-    return `${prefix}_${crypto.randomUUID()}`;
+/**
+ * Storage Optimization: Remove orphaned images that are no longer referenced by cats or records.
+ */
+export async function optimizeStorage(data: AppData): Promise<{ removed: number; sizeSaved: number }> {
+  if (!("indexedDB" in window)) return { removed: 0, sizeSaved: 0 };
+  
+  const db = await openDatabase();
+  const allImageIds = await idbGetAllKeys(db, STORE_IMAGES);
+  
+  const referencedIds = new Set<string>();
+  for (const cat of data.cats) {
+    if (cat.avatarImage) referencedIds.add(cat.avatarImage.id);
   }
+  for (const record of data.records) {
+    if (record.items.photos) {
+      for (const photo of record.items.photos) {
+        referencedIds.add(photo.id);
+      }
+    }
+  }
+
+  const orphans = allImageIds.filter(id => !referencedIds.has(id));
+  let sizeSaved = 0;
+
+  for (const id of orphans) {
+    const blob = await idbGet<Blob>(db, STORE_IMAGES, id);
+    if (blob) sizeSaved += blob.size;
+    await idbDelete(db, STORE_IMAGES, id);
+  }
+
+  return { removed: orphans.length, sizeSaved };
+}
+
+export function makeId(prefix: string) {
+  if ("crypto" in window && "randomUUID" in crypto) return `${prefix}_${crypto.randomUUID()}`;
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 }
 
-export function todayString() {
-  return formatDate(new Date());
-}
+export function todayString() { return formatDate(new Date()); }
 
 export function formatDate(date: Date) {
   const year = date.getFullYear();
@@ -254,13 +270,9 @@ export function formatDate(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-export function monthKey(dateString: string) {
-  return dateString.slice(0, 7);
-}
+export function monthKey(dateString: string) { return dateString.slice(0, 7); }
 
-export function parseDate(dateString: string) {
-  return new Date(`${dateString}T00:00:00`);
-}
+export function parseDate(dateString: string) { return new Date(`${dateString}T00:00:00`); }
 
 export function addDays(dateString: string, delta: number) {
   const date = parseDate(dateString);
@@ -299,17 +311,13 @@ export function missingFields(items: RecordItems): RecordField[] {
   return recordFieldOrder.filter((key) => items[key] === undefined || items[key] === null);
 }
 
-export function filledCount(items: RecordItems) {
-  return recordFieldOrder.length - missingFields(items).length;
-}
+export function filledCount(items: RecordItems) { return recordFieldOrder.length - missingFields(items).length; }
 
 export function missingCoreFields(items: RecordItems): RecordField[] {
   return coreRecordFieldOrder.filter((key) => items[key] === undefined || items[key] === null);
 }
 
-export function filledCoreCount(items: RecordItems) {
-  return coreRecordFieldOrder.length - missingCoreFields(items).length;
-}
+export function filledCoreCount(items: RecordItems) { return coreRecordFieldOrder.length - missingCoreFields(items).length; }
 
 export function upsertRecord(records: DailyRecord[], record: DailyRecord) {
   const index = records.findIndex((item) => item.catId === record.catId && item.date === record.date);
@@ -339,45 +347,30 @@ export function buildMonthlyExport(data: AppData, month: string, timezone: strin
   const records = data.records.filter((record) => record.date.startsWith(month));
   const catIds = new Set(records.map((record) => record.catId));
   const cats = data.cats.filter((cat) => catIds.has(cat.id));
-
   return {
     schemaVersion: 1,
-    app: {
-      name: "mylovecat",
-      exportedAt: new Date().toISOString(),
-    },
-    period: {
-      month,
-      timezone,
-    },
+    app: { name: "mylovecat", exportedAt: new Date().toISOString() },
+    period: { month, timezone },
     cats,
     records,
   };
 }
 
 export function mergeMonthlyExport(data: AppData, monthly: MonthlyExport): AppData {
-  if (monthly.schemaVersion !== 1 || monthly.app?.name !== "mylovecat") {
-    throw new Error("지원하지 않는 파일입니다.");
-  }
+  if (monthly.schemaVersion !== 1 || monthly.app?.name !== "mylovecat") throw new Error("지원하지 않는 파일입니다.");
   const catMap = new Map<string, CatProfile>();
   for (const cat of data.cats) catMap.set(cat.id, cat);
   for (const cat of monthly.cats ?? []) {
     const existing = catMap.get(cat.id);
-    if (!existing || (cat as any).updatedAt > (existing as any).updatedAt) {
-      catMap.set(cat.id, cat);
-    }
+    if (!existing || (cat as any).updatedAt > (existing as any).updatedAt) catMap.set(cat.id, cat);
   }
-
   const recordMap = new Map<string, DailyRecord>();
   for (const record of data.records) recordMap.set(`${record.catId}:${record.date}`, record);
   for (const record of monthly.records ?? []) {
     const key = `${record.catId}:${record.date}`;
     const existing = recordMap.get(key);
-    if (!existing || record.updatedAt > existing.updatedAt) {
-      recordMap.set(key, record);
-    }
+    if (!existing || record.updatedAt > existing.updatedAt) recordMap.set(key, record);
   }
-
   return {
     ...data,
     cats: Array.from(catMap.values()),
@@ -407,7 +400,7 @@ export async function requestPersistentStorage() {
 
 export function readImageAsset(file: File, options?: { maxEdge?: number; quality?: number }): Promise<ImageAsset> {
   const maxEdge = options?.maxEdge ?? 960;
-  const quality = options?.quality ?? 0.84;
+  const quality = options?.quality ?? 0.72; // Slightly more aggressive compression
 
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith("image/")) {
@@ -433,10 +426,10 @@ export function readImageAsset(file: File, options?: { maxEdge?: number; quality
         context.fillRect(0, 0, width, height);
         context.drawImage(image, 0, 0, width, height);
 
-        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        // Try WebP first for better compression if supported
+        const dataUrl = canvas.toDataURL("image/webp", quality) || canvas.toDataURL("image/jpeg", quality);
         const imageId = makeId("image");
         
-        // Save to granular storage if possible
         if ("indexedDB" in window) {
           const blob = await dataUrlToBlob(dataUrl);
           await saveImage(imageId, blob);
@@ -446,7 +439,7 @@ export function readImageAsset(file: File, options?: { maxEdge?: number; quality
           id: imageId,
           name: file.name,
           type: "image/jpeg",
-          dataUrl, // Still provide dataUrl for immediate preview
+          dataUrl,
           createdAt: new Date().toISOString(),
         });
       } catch (error) {
