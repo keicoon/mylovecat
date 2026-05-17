@@ -16,6 +16,21 @@ Output:
 dist/
 ```
 
+Deployment check:
+
+```bash
+npm run check:deploy
+```
+
+This builds the GitHub Pages artifact and verifies:
+
+- GitHub Pages base path asset references
+- PWA manifest scope/start URL
+- service worker scope-relative URLs
+- no deployed source maps
+- no `console.*`/`debugger` statements in deployable text assets
+- AdSense client/slot format and `ads.txt` when AdSense is enabled
+
 Recommended hosting options:
 
 | Host | Build command | Output directory | Notes |
@@ -74,6 +89,28 @@ npm run build
 
 When the variables are empty, no AdSense script is loaded. Public pages show reserved ad placeholders only.
 
+## AdSense Publisher Lock
+
+The client bundle can never hide a publisher id. To prevent accidental or unauthorized redeploys with a different publisher id in this repository, set `deploy.config.json` after AdSense approval:
+
+```json
+{
+  "adsense": {
+    "lockedClient": "ca-pub-0000000000000000"
+  }
+}
+```
+
+When `VITE_ADSENSE_CLIENT` is set and does not match `lockedClient`, the production build fails.
+
+The build also generates `dist/ads.txt` when AdSense is enabled:
+
+```text
+google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
+```
+
+For AdSense, prefer a custom domain or a GitHub Pages user/organization root site so `https://your-domain.example/ads.txt` is available at the domain root. A project page such as `https://user.github.io/mylovecat/` can host the app, but `ads.txt` verification is tied to the site domain root.
+
 ## AdSense Review Checklist
 
 Before applying:
@@ -85,6 +122,8 @@ Before applying:
 - Do not place ads inside the daily record input flow initially.
 - Update the privacy policy with Google advertising/cookie disclosure after enabling AdSense.
 - If serving ads to users in the EEA, UK, or Switzerland, use a Google-certified CMP as required by Google's EU user consent policy.
+- Lock the approved publisher id in `deploy.config.json`.
+- Protect `deploy.config.json`, `.github/workflows/`, and `scripts/` with branch protection or required review before production use.
 
 ## Official References
 

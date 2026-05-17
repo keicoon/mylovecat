@@ -6,8 +6,8 @@ type PublicPath = "/about" | "/guide" | "/cat-health-log-template" | "/privacy" 
 
 const publicPaths = new Set<string>(["/about", "/guide", "/cat-health-log-template", "/privacy", "/terms"]);
 
-const ADSENSE_CLIENT = import.meta.env.VITE_ADSENSE_CLIENT;
-const ADSENSE_SLOT_CONTENT = import.meta.env.VITE_ADSENSE_SLOT_CONTENT;
+const ADSENSE_CLIENT = sanitizeAdSenseClient(import.meta.env.VITE_ADSENSE_CLIENT);
+const ADSENSE_SLOT_CONTENT = sanitizeAdSlot(import.meta.env.VITE_ADSENSE_SLOT_CONTENT);
 
 declare global {
   interface Window {
@@ -313,4 +313,14 @@ function useAdSenseScript() {
     script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`;
     document.head.appendChild(script);
   }, []);
+}
+
+function sanitizeAdSenseClient(value: string | undefined) {
+  const trimmed = value?.trim();
+  return trimmed && /^ca-pub-\d{16}$/.test(trimmed) ? trimmed : "";
+}
+
+function sanitizeAdSlot(value: string | undefined) {
+  const trimmed = value?.trim();
+  return trimmed && /^\d{4,}$/.test(trimmed) ? trimmed : "";
 }

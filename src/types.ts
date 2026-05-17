@@ -1,7 +1,31 @@
 export type CatSex = "male" | "female" | "unknown";
 export type RelativeValue = "decreased" | "same" | "increased";
 export type ConditionValue = "bad" | "normal" | "good";
-export type ThemeMode = "system" | "light" | "dark";
+export type ThemeMode = "system" | "light" | "dark" | "calico" | "custom";
+export type ThemeColorKey =
+  | "ink"
+  | "muted"
+  | "line"
+  | "softLine"
+  | "surface"
+  | "surface2"
+  | "base"
+  | "brand"
+  | "brandText"
+  | "green"
+  | "mint"
+  | "coral"
+  | "amber"
+  | "violet";
+
+export type ThemeColors = Partial<Record<ThemeColorKey, string>>;
+
+export interface CustomTheme {
+  schemaVersion: 1;
+  app: "mylovecat-theme";
+  name: string;
+  colors: ThemeColors;
+}
 
 export interface ImageAsset {
   id: string;
@@ -47,6 +71,7 @@ export interface DailyRecord {
 export interface AppSettings {
   reminderTime: string;
   theme: ThemeMode;
+  customTheme?: CustomTheme;
   lastReminderDate?: string;
 }
 

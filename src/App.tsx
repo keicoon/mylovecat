@@ -11,6 +11,7 @@ import {
   ChevronRight,
   CircleAlert,
   ClipboardCheck,
+  Copy,
   Download,
   Droplets,
   HeartPulse,
@@ -18,13 +19,18 @@ import {
   LineChart,
   Monitor,
   Moon,
+  Palette,
   PawPrint,
   Pill,
   Plus,
+  Printer,
   RotateCcw,
   Save,
   Settings,
+  Share2,
   ShieldCheck,
+  Smartphone,
+  Sparkles,
   Sun,
   Trash2,
   Upload,
@@ -37,6 +43,7 @@ import type {
   CatProfile,
   CatSex,
   ConditionValue,
+  CustomTheme,
   DailyRecord,
   ImageAsset,
   MonthlyExport,
@@ -48,6 +55,13 @@ import type {
 import PublicPages, { isPublicPath } from "./PublicPages";
 import { recordFieldLabels } from "./types";
 import { advancedRecordFieldOrder, coreRecordFieldOrder } from "./types";
+import {
+  applyCustomThemeToRoot,
+  buildThemeTemplate,
+  normalizeCustomTheme,
+  themeColorKeys,
+  themeColorLabels,
+} from "./theme";
 import {
   addDays,
   buildMonthlyExport,
@@ -80,6 +94,15 @@ type ToastState = { tone: "success" | "warning" | "danger"; message: string } | 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+};
+
+type InstallContext = {
+  canPrompt: boolean;
+  isStandalone: boolean;
+  platform: "ios-safari" | "ios-other" | "desktop" | "installed";
+  title: string;
+  description: string;
+  steps: string[];
 };
 
 const tabs: Array<{ id: TabId; label: string; icon: typeof ClipboardCheck }> = [
@@ -119,6 +142,62 @@ const quickCopyFields: RecordField[] = [
   "foodSnackAmount",
   "condition",
 ];
+
+function isStandaloneDisplay() {
+  const navigatorWithStandalone = window.navigator as Navigator & { standalone?: boolean };
+  return window.matchMedia("(display-mode: standalone)").matches || navigatorWithStandalone.standalone === true;
+}
+
+function getInstallContext(canPrompt: boolean): InstallContext {
+  const userAgent = window.navigator.userAgent;
+  const isIos = /iPad|iPhone|iPod/.test(userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isSafari = /^((?!CriOS|FxiOS|EdgiOS|OPiOS).)*Safari/.test(userAgent);
+  const isStandalone = isStandaloneDisplay();
+
+  if (isStandalone) {
+    return {
+      canPrompt: false,
+      isStandalone: true,
+      platform: "installed",
+      title: "홈 화면 앱으로 실행 중",
+      description: "브라우저 주소창 없이 앱 형태로 열렸습니다.",
+      steps: ["매일 기록 알림과 오프라인 사용 상태를 설정에서 확인하세요."],
+    };
+  }
+
+  if (isIos && isSafari) {
+    return {
+      canPrompt: false,
+      isStandalone: false,
+      platform: "ios-safari",
+      title: "iPhone 홈 화면에 추가",
+      description: "Safari 공유 버튼을 통해 MyLoveCat을 앱처럼 실행할 수 있습니다.",
+      steps: ["Safari 하단의 공유 버튼을 누릅니다.", "홈 화면에 추가를 선택합니다.", "이름을 확인하고 추가를 누릅니다."],
+    };
+  }
+
+  if (isIos) {
+    return {
+      canPrompt: false,
+      isStandalone: false,
+      platform: "ios-other",
+      title: "Safari에서 열어 설치",
+      description: "iPhone의 홈 화면 추가는 Safari에서 가장 안정적으로 동작합니다.",
+      steps: ["현재 주소를 복사합니다.", "Safari에서 주소를 엽니다.", "공유 버튼에서 홈 화면에 추가를 선택합니다."],
+    };
+  }
+
+  return {
+    canPrompt,
+    isStandalone: false,
+    platform: "desktop",
+    title: canPrompt ? "앱으로 설치 가능" : "브라우저 설치 메뉴 확인",
+    description: canPrompt ? "현재 브라우저에서 바로 설치할 수 있습니다." : "주소창이나 브라우저 메뉴의 설치 항목을 확인하세요.",
+    steps: canPrompt
+      ? ["설치 버튼을 누릅니다.", "브라우저 확인 창에서 설치를 선택합니다."]
+      : ["Chrome 또는 Edge 주소창의 설치 아이콘을 확인합니다.", "설치 항목이 없다면 HTTPS 배포 주소에서 다시 열어보세요."],
+  };
+}
 
 function normalizeAppPath(pathname: string) {
   const basePath = import.meta.env.BASE_URL;
@@ -168,6 +247,7 @@ function TrackerApp() {
   const [activeTab, setActiveTab] = useState<TabId>(() => initialTab());
   const [toast, setToast] = useState<ToastState>(null);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [installGuideDismissed, setInstallGuideDismissed] = useState(false);
   const autoSelectedTodayRef = useRef(false);
 
   useEffect(() => {
@@ -197,9 +277,15 @@ function TrackerApp() {
 
     const applyTheme = () => {
       const resolvedTheme = data.settings.theme === "system" ? (media.matches ? "dark" : "light") : data.settings.theme;
+      const isDarkTheme = resolvedTheme === "dark";
+      const customTheme = resolvedTheme === "custom" ? data.settings.customTheme : undefined;
+
       document.documentElement.dataset.theme = resolvedTheme;
-      document.documentElement.style.colorScheme = resolvedTheme;
-      document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolvedTheme === "dark" ? "#0e1413" : "#f7f8fb");
+      document.documentElement.style.colorScheme = isDarkTheme ? "dark" : "light";
+      applyCustomThemeToRoot(document.documentElement, customTheme);
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.setAttribute("content", customTheme?.colors.base ?? (isDarkTheme ? "#0e1413" : resolvedTheme === "calico" ? "#fff6f8" : "#f7f8fb"));
     };
 
     applyTheme();
@@ -207,7 +293,7 @@ function TrackerApp() {
 
     media.addEventListener("change", applyTheme);
     return () => media.removeEventListener("change", applyTheme);
-  }, [data.settings.theme]);
+  }, [data.settings.customTheme, data.settings.theme]);
 
   useEffect(() => {
     if (!selectedCatId && data.cats[0]) setSelectedCatId(data.cats[0].id);
@@ -292,6 +378,9 @@ function TrackerApp() {
     setInstallPrompt(null);
   };
 
+  const installContext = getInstallContext(Boolean(installPrompt));
+  const showInstallGuide = !installGuideDismissed && !installContext.isStandalone && (installContext.canPrompt || installContext.platform !== "desktop");
+
   const addCat = (cat: Omit<CatProfile, "id">) => {
     const nextCat = { ...cat, id: makeId("cat") };
     setData((current) => ({ ...current, cats: [...current.cats, nextCat] }));
@@ -355,6 +444,14 @@ function TrackerApp() {
           onInstall={openInstallPrompt}
         />
 
+        {showInstallGuide ? (
+          <InstallBanner
+            context={installContext}
+            onDismiss={() => setInstallGuideDismissed(true)}
+            onInstall={openInstallPrompt}
+          />
+        ) : null}
+
         {!storageReady ? (
           <LoadingView />
         ) : data.cats.length === 0 ? (
@@ -386,7 +483,9 @@ function TrackerApp() {
                 }}
               />
             )}
-            {activeTab === "track" && <TrackView cat={selectedCat} records={selectedRecords} selectedDate={selectedDate} />}
+            {activeTab === "track" && (
+              <TrackView cat={selectedCat} records={selectedRecords} selectedDate={selectedDate} onToast={setToast} />
+            )}
             {activeTab === "settings" && (
               <SettingsView
                 data={data}
@@ -397,6 +496,7 @@ function TrackerApp() {
                 onDataChange={setData}
                 onToast={setToast}
                 installPromptAvailable={Boolean(installPrompt)}
+                installContext={installContext}
                 onInstall={openInstallPrompt}
               />
             )}
@@ -483,6 +583,44 @@ function TopBar({
         </button>
       </div>
     </header>
+  );
+}
+
+function InstallBanner({
+  context,
+  onInstall,
+  onDismiss,
+}: {
+  context: InstallContext;
+  onInstall: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <section className="install-banner" aria-label="앱 설치 안내">
+      <div className="install-banner-icon">
+        <Smartphone size={22} aria-hidden="true" />
+      </div>
+      <div>
+        <strong>{context.title}</strong>
+        <p>{context.description}</p>
+        <ol>
+          {context.steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      </div>
+      <div className="install-banner-actions">
+        {context.canPrompt ? (
+          <button className="primary-button" onClick={onInstall}>
+            <Download size={18} aria-hidden="true" />
+            설치
+          </button>
+        ) : null}
+        <button className="icon-button" onClick={onDismiss} aria-label="설치 안내 닫기">
+          <X size={18} aria-hidden="true" />
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -797,7 +935,17 @@ function CalendarView({
   );
 }
 
-function TrackView({ cat, records, selectedDate }: { cat: CatProfile; records: DailyRecord[]; selectedDate: string }) {
+function TrackView({
+  cat,
+  records,
+  selectedDate,
+  onToast,
+}: {
+  cat: CatProfile;
+  records: DailyRecord[];
+  selectedDate: string;
+  onToast: (toast: ToastState) => void;
+}) {
   const [range, setRange] = useState<7 | 30 | 90>(30);
   const oldestDate = addDays(selectedDate, -(range - 1));
   const visible = records
@@ -832,6 +980,8 @@ function TrackView({ cat, records, selectedDate }: { cat: CatProfile; records: D
           <Kpi label="최근 체중" value={latestWeight ? `${latestWeight}kg` : "-"} />
         </div>
       </div>
+
+      <VetReportPanel cat={cat} records={visible} fromDate={oldestDate} toDate={selectedDate} onToast={onToast} />
 
       <div className="panel span-2">
         <div className="panel-head compact">
@@ -893,6 +1043,172 @@ function TrackView({ cat, records, selectedDate }: { cat: CatProfile; records: D
   );
 }
 
+function VetReportPanel({
+  cat,
+  records,
+  fromDate,
+  toDate,
+  onToast,
+}: {
+  cat: CatProfile;
+  records: DailyRecord[];
+  fromDate: string;
+  toDate: string;
+  onToast: (toast: ToastState) => void;
+}) {
+  const reportText = buildVetReportText(cat, records, fromDate, toDate);
+  const attentionCounts = countAttentionItems(records);
+  const latestWeight = [...records].reverse().find((record) => record.items.weightKg !== undefined)?.items.weightKg;
+  const noteRecords = records.filter((record) => record.items.note || record.items.photos?.length);
+
+  const copyReport = async () => {
+    try {
+      await navigator.clipboard.writeText(reportText);
+      onToast({ tone: "success", message: "수의사 공유 요약을 복사했어요." });
+    } catch {
+      onToast({ tone: "warning", message: "클립보드 복사 권한이 필요해요." });
+    }
+  };
+
+  const shareReport = async () => {
+    if (!navigator.share) {
+      await copyReport();
+      return;
+    }
+
+    try {
+      await navigator.share({
+        title: `MyLoveCat ${cat.name} 리포트`,
+        text: reportText,
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      onToast({ tone: "warning", message: "공유를 완료하지 못했어요." });
+    }
+  };
+
+  const printReport = () => {
+    document.body.classList.add("is-printing-report");
+    const cleanup = () => document.body.classList.remove("is-printing-report");
+    window.addEventListener("afterprint", cleanup, { once: true });
+    window.setTimeout(() => window.print(), 60);
+    window.setTimeout(cleanup, 1800);
+  };
+
+  return (
+    <section className="panel span-2 vet-report-panel report-print-area">
+      <div className="panel-head">
+        <div>
+          <p className="eyebrow">Vet report</p>
+          <h2>수의사 공유 리포트</h2>
+        </div>
+        <div className="report-actions no-print">
+          <button className="soft-button" onClick={copyReport}>
+            <Copy size={18} aria-hidden="true" />
+            복사
+          </button>
+          <button className="soft-button" onClick={shareReport}>
+            <Share2 size={18} aria-hidden="true" />
+            공유
+          </button>
+          <button className="primary-button" onClick={printReport}>
+            <Printer size={18} aria-hidden="true" />
+            인쇄/PDF
+          </button>
+        </div>
+      </div>
+
+      <div className="report-cover">
+        <CatAvatar cat={cat} size="large" />
+        <div>
+          <h3>{cat.name}</h3>
+          <p>
+            {cat.ageYears ?? "-"}세 · {formatSex(cat.sex)} · {cat.neutered ? "중성화" : "미중성화"} · {fromDate} - {toDate}
+          </p>
+        </div>
+      </div>
+
+      <div className="kpi-row report-kpis">
+        <Kpi label="기록일" value={`${records.length}일`} />
+        <Kpi label="주의 항목" value={`${Object.values(attentionCounts).reduce((sum, count) => sum + count, 0)}개`} tone="warning" />
+        <Kpi label="메모/사진" value={`${noteRecords.length}일`} />
+        <Kpi label="최근 체중" value={latestWeight ? `${latestWeight}kg` : "-"} />
+      </div>
+
+      <div className="report-section">
+        <h3>주의 항목 요약</h3>
+        {Object.keys(attentionCounts).length ? (
+          <div className="report-tags">
+            {Object.entries(attentionCounts).map(([label, count]) => (
+              <span key={label}>
+                {label} {count}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <EmptyLine text="선택한 기간에 주의 항목이 없어요." />
+        )}
+      </div>
+
+      <div className="report-section">
+        <h3>최근 특이사항</h3>
+        {noteRecords.length ? (
+          <div className="report-notes">
+            {noteRecords
+              .slice()
+              .reverse()
+              .slice(0, 6)
+              .map((record) => (
+                <article key={record.id}>
+                  <strong>{record.date}</strong>
+                  {record.items.note ? <p>{record.items.note}</p> : null}
+                  {record.items.photos?.length ? <small>사진 {record.items.photos.length}장</small> : null}
+                </article>
+              ))}
+          </div>
+        ) : (
+          <EmptyLine text="메모나 사진이 있는 기록이 없어요." />
+        )}
+      </div>
+
+      <div className="table-wrap report-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>날짜</th>
+              <th>식욕</th>
+              <th>물</th>
+              <th>배변</th>
+              <th>소변</th>
+              <th>구토</th>
+              <th>활동</th>
+              <th>컨디션</th>
+              <th>체중</th>
+              <th>주의</th>
+            </tr>
+          </thead>
+          <tbody>
+            {records.map((record) => (
+              <tr key={record.id}>
+                <td>{record.date}</td>
+                <td>{formatRelative(record.items.appetite)}</td>
+                <td>{formatRelative(record.items.waterIntake)}</td>
+                <td>{formatCount(record.items.stoolCount)}</td>
+                <td>{formatCount(record.items.urineCount)}</td>
+                <td>{record.items.vomit === undefined ? "-" : record.items.vomit ? "있음" : "없음"}</td>
+                <td>{formatRelative(record.items.activity)}</td>
+                <td>{formatCondition(record.items.condition)}</td>
+                <td>{record.items.weightKg ? `${record.items.weightKg}kg` : "-"}</td>
+                <td>{getAttentionItems(record).join(", ") || "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 function SettingsView({
   data,
   selectedDate,
@@ -902,6 +1218,7 @@ function SettingsView({
   onDataChange,
   onToast,
   installPromptAvailable,
+  installContext,
   onInstall,
 }: {
   data: AppData;
@@ -912,6 +1229,7 @@ function SettingsView({
   onDataChange: (updater: (current: AppData) => AppData) => void;
   onToast: (toast: ToastState) => void;
   installPromptAvailable: boolean;
+  installContext: InstallContext;
   onInstall: () => void;
 }) {
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
@@ -953,6 +1271,32 @@ function SettingsView({
     } finally {
       event.target.value = "";
     }
+  };
+
+  const handleThemeImport = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const theme = normalizeCustomTheme(JSON.parse(text));
+      if (!theme) throw new Error("지원하지 않는 테마 파일입니다.");
+      onDataChange((current) => ({
+        ...current,
+        settings: { ...current.settings, theme: "custom", customTheme: theme },
+      }));
+      onToast({ tone: "success", message: `${theme.name} 테마를 적용했어요.` });
+    } catch (error) {
+      onToast({ tone: "danger", message: error instanceof Error ? error.message : "테마 가져오기에 실패했어요." });
+    } finally {
+      event.target.value = "";
+    }
+  };
+
+  const handleThemeExport = () => {
+    const theme = data.settings.customTheme ?? buildThemeTemplate();
+    downloadJson(`mylovecat-theme-${theme.name.toLowerCase().replace(/[^a-z0-9가-힣]+/g, "-")}.json`, theme);
+    onToast({ tone: "success", message: "테마 JSON을 내보냈어요." });
   };
 
   const requestNotification = async () => {
@@ -1066,11 +1410,17 @@ function SettingsView({
               { value: "system" as const, label: "자동" },
               { value: "light" as const, label: "라이트" },
               { value: "dark" as const, label: "다크" },
+              { value: "calico" as const, label: "고양이" },
+              { value: "custom" as const, label: "커스텀" },
             ]}
             onChange={(theme: ThemeMode) =>
               onDataChange((current) => ({
                 ...current,
-                settings: { ...current.settings, theme },
+                settings: {
+                  ...current.settings,
+                  theme,
+                  customTheme: theme === "custom" ? current.settings.customTheme ?? buildThemeTemplate() : current.settings.customTheme,
+                },
               }))
             }
           />
@@ -1078,9 +1428,24 @@ function SettingsView({
             <Monitor size={18} />
             <Sun size={18} />
             <Moon size={18} />
+            <Sparkles size={18} />
+          </div>
+          <ThemeSwatches theme={data.settings.customTheme} />
+          <div className="button-stack">
+            <label className="soft-button file-button">
+              <Palette size={18} aria-hidden="true" />
+              테마 가져오기
+              <input type="file" accept="application/json" onChange={handleThemeImport} />
+            </label>
+            <button className="soft-button" onClick={handleThemeExport}>
+              <Download size={18} aria-hidden="true" />
+              테마 내보내기
+            </button>
           </div>
         </div>
       </div>
+
+      <InstallGuideCard context={installContext} installPromptAvailable={installPromptAvailable} onInstall={onInstall} />
 
       <div className="panel">
         <div className="panel-head compact">
@@ -1112,6 +1477,53 @@ function SettingsView({
         </div>
       </div>
     </section>
+  );
+}
+
+function ThemeSwatches({ theme }: { theme?: CustomTheme }) {
+  const colors = theme?.colors ?? buildThemeTemplate().colors;
+
+  return (
+    <div className="theme-swatches" aria-label="커스텀 테마 색상 미리보기">
+      {themeColorKeys.slice(0, 8).map((key) => (
+        <span key={key} title={themeColorLabels[key]} style={{ background: colors[key] }} />
+      ))}
+    </div>
+  );
+}
+
+function InstallGuideCard({
+  context,
+  installPromptAvailable,
+  onInstall,
+}: {
+  context: InstallContext;
+  installPromptAvailable: boolean;
+  onInstall: () => void;
+}) {
+  return (
+    <div className="panel install-guide-card">
+      <div className="panel-head compact">
+        <h2>설치</h2>
+      </div>
+      <div className="install-guide-status">
+        <Smartphone size={20} aria-hidden="true" />
+        <div>
+          <strong>{context.title}</strong>
+          <p>{context.description}</p>
+        </div>
+      </div>
+      <ol>
+        {context.steps.map((step) => (
+          <li key={step}>{step}</li>
+        ))}
+      </ol>
+      {installPromptAvailable ? (
+        <button className="primary-button" onClick={onInstall}>
+          <Download size={18} aria-hidden="true" />앱 설치
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -1691,6 +2103,64 @@ function getAttentionItems(record: DailyRecord) {
   if (items.condition === "bad") alerts.push("컨디션 나쁨");
 
   return alerts;
+}
+
+function countAttentionItems(records: DailyRecord[]) {
+  const counts: Record<string, number> = {};
+
+  for (const record of records) {
+    for (const item of getAttentionItems(record)) {
+      counts[item] = (counts[item] ?? 0) + 1;
+    }
+  }
+
+  return counts;
+}
+
+function buildVetReportText(cat: CatProfile, records: DailyRecord[], fromDate: string, toDate: string) {
+  const attentionCounts = countAttentionItems(records);
+  const latestWeight = [...records].reverse().find((record) => record.items.weightKg !== undefined)?.items.weightKg;
+  const noteRecords = records.filter((record) => record.items.note || record.items.photos?.length);
+  const lines = [
+    `MyLoveCat 수의사 공유 리포트`,
+    `고양이: ${cat.name}`,
+    `프로필: ${cat.ageYears ?? "-"}세 / ${formatSex(cat.sex)} / ${cat.neutered ? "중성화" : "미중성화"}`,
+    `기간: ${fromDate} - ${toDate}`,
+    `기록일: ${records.length}일`,
+    `최근 체중: ${latestWeight ? `${latestWeight}kg` : "-"}`,
+    "",
+    "주의 항목:",
+    Object.keys(attentionCounts).length
+      ? Object.entries(attentionCounts)
+          .map(([label, count]) => `- ${label}: ${count}`)
+          .join("\n")
+      : "- 없음",
+    "",
+    "일자별 기록:",
+    ...records.map((record) => {
+      const items = record.items;
+      return [
+        `${record.date}`,
+        `식욕 ${formatRelative(items.appetite)}`,
+        `물 ${formatRelative(items.waterIntake)}`,
+        `배변 ${formatCount(items.stoolCount)}`,
+        `소변 ${formatCount(items.urineCount)}`,
+        `구토 ${items.vomit === undefined ? "-" : items.vomit ? "있음" : "없음"}`,
+        `활동 ${formatRelative(items.activity)}`,
+        `컨디션 ${formatCondition(items.condition)}`,
+        `체중 ${items.weightKg ? `${items.weightKg}kg` : "-"}`,
+        `주의 ${getAttentionItems(record).join(", ") || "-"}`,
+        items.note ? `메모 ${items.note}` : undefined,
+        items.photos?.length ? `사진 ${items.photos.length}장` : undefined,
+      ]
+        .filter(Boolean)
+        .join(" / ");
+    }),
+    "",
+    `메모/사진 기록일: ${noteRecords.length}일`,
+  ];
+
+  return lines.join("\n");
 }
 
 function shiftMonth(month: string, delta: number) {

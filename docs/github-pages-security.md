@@ -53,6 +53,8 @@ VITE_ADSENSE_CLIENT
 VITE_ADSENSE_SLOT_CONTENT
 ```
 
+승인된 publisher id가 생기면 `deploy.config.json`의 `adsense.lockedClient`에 같은 값을 커밋합니다. 이후 GitHub Actions secret이 다른 값으로 바뀌면 빌드가 실패합니다.
+
 ## Minify / Uglify 기준
 
 `vite.config.ts`에 프로덕션 빌드 설정을 명시했습니다.
@@ -60,6 +62,7 @@ VITE_ADSENSE_SLOT_CONTENT
 - `build.minify: "oxc"`
 - `build.sourcemap: false`
 - production mode에서 `console`과 `debugger` 제거
+- `npm run check:deploy`로 Pages 산출물 검증
 
 Vite 프로덕션 빌드는 번들링과 minify를 수행합니다. source map을 만들지 않으면 원본 TypeScript/React 구조를 DevTools에서 바로 복원하기 어렵습니다.
 
@@ -132,6 +135,10 @@ AdSense 적용 전 확인:
 - Google 광고와 쿠키 고지 보강
 - AdSense에서 사이트 승인
 - 광고가 콘텐츠를 덮거나 클릭을 유도하지 않도록 배치
+- 승인된 AdSense client id를 `deploy.config.json`에 잠금
+- AdSense 사용 시 `ads.txt`가 도메인 루트에서 제공되는지 확인
+
+`ads.txt`는 위조된 광고 인벤토리 판매를 줄이기 위한 공개 선언 파일입니다. 빌드 스크립트는 `VITE_ADSENSE_CLIENT`가 있을 때 `dist/ads.txt`를 생성합니다. 단, GitHub Pages 프로젝트 페이지(`/mylovecat/`)는 도메인 루트가 아니므로 AdSense 운영 단계에서는 커스텀 도메인을 붙이는 편이 안전합니다.
 
 ## 로컬 확인
 

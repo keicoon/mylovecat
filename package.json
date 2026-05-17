@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "dev:lan": "vite --host 0.0.0.0 --port 5173",
-    "build": "tsc --noEmit && vite build",
-    "build:pages": "VITE_BASE_PATH=/mylovecat/ npm run build && cp dist/index.html dist/404.html",
+    "build": "tsc --noEmit && vite build && node scripts/finalize-deploy.mjs",
+    "build:pages": "VITE_BASE_PATH=/mylovecat/ tsc --noEmit && VITE_BASE_PATH=/mylovecat/ vite build && VITE_BASE_PATH=/mylovecat/ node scripts/finalize-deploy.mjs --pages",
+    "check:deploy": "npm run build:pages && node scripts/check-deploy.mjs --base=/mylovecat/",
     "preview": "vite preview --host 0.0.0.0",
     "preview:pwa": "npm run build && vite preview --host 0.0.0.0 --port 4173",
     "preview:pages": "npm run build:pages && VITE_BASE_PATH=/mylovecat/ vite preview --host 0.0.0.0 --port 4173"

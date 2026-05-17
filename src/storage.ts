@@ -6,9 +6,9 @@ import type {
   MonthlyExport,
   RecordField,
   RecordItems,
-  ThemeMode,
 } from "./types";
 import { coreRecordFieldOrder, recordFieldOrder } from "./types";
+import { isThemeMode, normalizeCustomTheme } from "./theme";
 
 const LOCAL_STORAGE_KEY = "mylovecat:data:v1";
 const DB_NAME = "mylovecat";
@@ -90,6 +90,7 @@ function normalizeData(data: Partial<AppData>): AppData {
     settings: {
       reminderTime: data.settings?.reminderTime ?? "21:00",
       theme: isThemeMode(data.settings?.theme) ? data.settings.theme : "system",
+      customTheme: normalizeCustomTheme(data.settings?.customTheme),
       lastReminderDate: data.settings?.lastReminderDate,
     },
   };
@@ -137,10 +138,6 @@ export function makeId(prefix: string) {
   }
 
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-}
-
-function isThemeMode(value: unknown): value is ThemeMode {
-  return value === "system" || value === "light" || value === "dark";
 }
 
 export function todayString() {

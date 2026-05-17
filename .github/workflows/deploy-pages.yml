@@ -42,6 +42,12 @@ jobs:
           VITE_ADSENSE_CLIENT: ${{ secrets.VITE_ADSENSE_CLIENT }}
           VITE_ADSENSE_SLOT_CONTENT: ${{ secrets.VITE_ADSENSE_SLOT_CONTENT }}
 
+      - name: Check deploy artifact
+        run: node scripts/check-deploy.mjs --base=/mylovecat/
+        env:
+          VITE_ADSENSE_CLIENT: ${{ secrets.VITE_ADSENSE_CLIENT }}
+          VITE_ADSENSE_SLOT_CONTENT: ${{ secrets.VITE_ADSENSE_SLOT_CONTENT }}
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
