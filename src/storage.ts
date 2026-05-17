@@ -359,10 +359,23 @@ export function mergeMonthlyExport(data: AppData, monthly: MonthlyExport): AppDa
   }
   const catMap = new Map<string, CatProfile>();
   for (const cat of data.cats) catMap.set(cat.id, cat);
-  for (const cat of monthly.cats ?? []) catMap.set(cat.id, cat);
+  for (const cat of monthly.cats ?? []) {
+    const existing = catMap.get(cat.id);
+    if (!existing || (cat as any).updatedAt > (existing as any).updatedAt) {
+      catMap.set(cat.id, cat);
+    }
+  }
+
   const recordMap = new Map<string, DailyRecord>();
   for (const record of data.records) recordMap.set(`${record.catId}:${record.date}`, record);
-  for (const record of monthly.records ?? []) recordMap.set(`${record.catId}:${record.date}`, record);
+  for (const record of monthly.records ?? []) {
+    const key = `${record.catId}:${record.date}`;
+    const existing = recordMap.get(key);
+    if (!existing || record.updatedAt > existing.updatedAt) {
+      recordMap.set(key, record);
+    }
+  }
+
   return {
     ...data,
     cats: Array.from(catMap.values()),

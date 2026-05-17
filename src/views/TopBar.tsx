@@ -1,7 +1,7 @@
-import React from "react";
-import { Download, Plus } from "lucide-react";
+import { Cloud, CloudOff, Download, Plus } from "lucide-react";
 import type { CatProfile } from "../types";
 import { CatAvatar } from "../components/CatAvatar";
+import { SyncStatus } from "../syncService";
 
 export function TopBar({
   cats,
@@ -12,6 +12,7 @@ export function TopBar({
   onAddCat,
   installPromptAvailable,
   onInstall,
+  syncStatus,
 }: {
   cats: CatProfile[];
   selectedCatId: string;
@@ -21,13 +22,23 @@ export function TopBar({
   onAddCat: () => void;
   installPromptAvailable: boolean;
   onInstall: () => void;
+  syncStatus: SyncStatus;
 }) {
   return (
     <header className="topbar">
       <div>
         <div className="eyebrow">MyLoveCat</div>
-        <h1>오늘의 고양이 기록</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h1>오늘의 고양이 기록</h1>
+          {syncStatus.signedIn ? (
+            <div className={`sync-indicator ${syncStatus.isSyncing ? "is-syncing" : ""}`} title="클라우드 동기화 중">
+              <Cloud size={14} color={syncStatus.error ? "var(--coral)" : "var(--mint)"} />
+            </div>
+          ) : null}
+        </div>
       </div>
+...
+
       <div className="topbar-actions">
         <input
           className="date-input"

@@ -392,6 +392,7 @@ function TrackerApp() {
           onAddCat={() => setActiveTab("settings")}
           installPromptAvailable={Boolean(installPrompt)}
           onInstall={openInstallPrompt}
+          syncStatus={syncStatus}
         />
 
         {showInstallGuide ? (
