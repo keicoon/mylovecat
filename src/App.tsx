@@ -17,6 +17,7 @@ import {
 } from "./storage";
 import { shiftMonth } from "./logic";
 import { t } from "./i18n";
+import { syncService, SyncStatus } from "./syncService";
 
 // Components
 import { LoadingView, Toast } from "./components/CommonUI";
@@ -162,29 +163,58 @@ function TrackerApp() {
   const [toast, setToast] = useState<ToastState>(null);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [installGuideDismissed, setInstallGuideDismissed] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
+    signedIn: false,
+    isSyncing: false,
+    isConfigured: false,
+  });
   const autoSelectedTodayRef = useRef(false);
+  const initialSyncRef = useRef(false);
+
+  useEffect(() => {
+    syncService.init(setSyncStatus);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
-    loadData()
-      .then((storedData) => {
+    const initialize = async () => {
+      try {
+        const storedData = await loadData();
         if (cancelled) return;
+        
         setData(storedData);
         setSelectedCatId(storedData.cats[0]?.id ?? "");
-      })
-      .finally(() => {
+
+        // Auto-sync on startup if signed in
+        if (syncStatus.signedIn && !initialSyncRef.current) {
+          const merged = await syncService.sync(storedData);
+          if (merged && !cancelled) {
+            setData(merged);
+            initialSyncRef.current = true;
+          }
+        }
+      } finally {
         if (!cancelled) setStorageReady(true);
-      });
+      }
+    };
+
+    void initialize();
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [syncStatus.signedIn]);
 
   useEffect(() => {
-    if (storageReady) void saveData(data);
-  }, [data, storageReady]);
+    if (storageReady) {
+      void saveData(data);
+      // Auto-upload backup to cloud on changes
+      if (syncStatus.signedIn) {
+        void syncService.uploadOnly(data);
+      }
+    }
+  }, [data, storageReady, syncStatus.signedIn]);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");

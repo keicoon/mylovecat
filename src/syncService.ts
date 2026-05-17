@@ -4,6 +4,7 @@ import { mergeMonthlyExport } from "./storage";
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const SCOPES = "https://www.googleapis.com/auth/drive.appdata";
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
+const TOKEN_STORAGE_KEY = "mylovecat:google:token";
 
 let gapiInitialized = false;
 let gsiInitialized = false;
@@ -26,11 +27,12 @@ class GoogleSyncService {
   };
 
   private onStatusChange?: (status: SyncStatus) => void;
+  private currentAccessToken: string | null = localStorage.getItem(TOKEN_STORAGE_KEY);
 
   init(onStatusChange: (status: SyncStatus) => void) {
     this.onStatusChange = onStatusChange;
     if (!CLIENT_ID) {
-      this.status.error = "설정에서 Google Client ID를 입력해주세요.";
+      this.status.error = "Google Client ID가 설정되지 않았습니다.";
       this.checkInternalStatus();
       return;
     }
@@ -56,13 +58,17 @@ class GoogleSyncService {
   private async initializeGapi() {
     try {
       await new Promise((resolve) => gapi.load("client", resolve));
-      await gapi.client.init({
-        discoveryDocs: DISCOVERY_DOCS,
-      });
+      await gapi.client.init({ discoveryDocs: DISCOVERY_DOCS });
       gapiInitialized = true;
+      
+      // If we have a saved token, try to set it
+      if (this.currentAccessToken) {
+        gapi.client.setToken({ access_token: this.currentAccessToken });
+        this.status.signedIn = true;
+      }
+      
       this.checkInternalStatus();
     } catch (e) {
-      console.error("GAPI Init failed", e);
       this.status.error = "Google API 초기화 실패";
       this.checkInternalStatus();
     }
@@ -79,17 +85,16 @@ class GoogleSyncService {
             this.checkInternalStatus();
             return;
           }
+          this.currentAccessToken = resp.access_token;
+          localStorage.setItem(TOKEN_STORAGE_KEY, resp.access_token);
           this.status.signedIn = true;
           this.status.error = undefined;
           this.checkInternalStatus();
-          // Initial sync after sign in
-          // Note: AppData needs to be passed from the component if we want to merge local
         },
       });
       gsiInitialized = true;
       this.checkInternalStatus();
     } catch (e) {
-      console.error("GSI Init failed", e);
       this.status.error = "인증 모듈 로드 실패";
       this.checkInternalStatus();
     }
@@ -100,17 +105,8 @@ class GoogleSyncService {
   }
 
   async signIn() {
-    if (!tokenClient) {
-      if (!CLIENT_ID) {
-        this.status.error = "VITE_GOOGLE_CLIENT_ID 설정이 누락되었습니다.";
-      } else {
-        this.status.error = "라이브러리가 아직 로드되지 않았습니다.";
-        this.loadScripts();
-      }
-      this.checkInternalStatus();
-      return;
-    }
-    tokenClient.requestAccessToken({ prompt: "consent" });
+    if (!tokenClient) return;
+    tokenClient.requestAccessToken({ prompt: this.currentAccessToken ? "" : "select_account" });
   }
 
   async signOut() {
@@ -118,6 +114,8 @@ class GoogleSyncService {
     if (token !== null) {
       google.accounts.oauth2.revoke(token.access_token, () => {
         gapi.client.setToken(null);
+        this.currentAccessToken = null;
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
         this.status.signedIn = false;
         this.status.error = undefined;
         this.checkInternalStatus();
@@ -125,74 +123,97 @@ class GoogleSyncService {
     }
   }
 
-  async sync(localData?: AppData): Promise<AppData | null> {
-    if (!gapiInitialized || !this.status.signedIn) {
-      if (!this.status.signedIn) await this.signIn();
-      return null;
-    }
+  /**
+   * Main sync function: Download remote, merge with local, and upload back.
+   */
+  async sync(localData: AppData): Promise<AppData | null> {
+    if (!gapiInitialized || !this.status.signedIn) return null;
 
     this.status.isSyncing = true;
     this.status.error = undefined;
     this.checkInternalStatus();
 
     try {
-      const response = await gapi.client.drive.files.list({
-        spaces: "appDataFolder",
-        fields: "files(id, name)",
-        q: "name = 'mylovecat_sync.json'",
-      });
-
-      const files = response.result.files;
-      let fileId = files && files.length > 0 ? files[0].id : null;
+      const fileId = await this.findSyncFile();
 
       if (fileId) {
+        // Download remote data
         const res = await gapi.client.drive.files.get({
           fileId: fileId,
           alt: "media",
         });
         const remoteData = res.result as AppData;
 
-        if (localData) {
-          const merged = this.mergeData(localData, remoteData);
-          await this.upload(fileId, merged);
-          this.status.lastSyncedAt = new Date().toISOString();
-          return merged;
-        } else {
-          this.status.lastSyncedAt = new Date().toISOString();
-          return remoteData;
-        }
-      } else if (localData) {
+        // Merge logic
+        const merged = this.mergeData(localData, remoteData);
+        
+        // Upload merged data back to cloud
+        await this.upload(fileId, merged);
+        
+        this.status.lastSyncedAt = new Date().toISOString();
+        return merged;
+      } else {
+        // First time sync: Upload current local data
         await this.createFile(localData);
         this.status.lastSyncedAt = new Date().toISOString();
         return localData;
       }
     } catch (error: any) {
-      console.error("Sync failed", error);
-      this.status.error = "동기화 실패 (권한이나 네트워크 확인)";
+      if (error.status === 401) {
+        // Token expired
+        this.status.signedIn = false;
+        this.currentAccessToken = null;
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        this.status.error = "인증 세션이 만료되었습니다. 다시 로그인해주세요.";
+      } else {
+        this.status.error = "동기화 실패 (네트워크 확인)";
+      }
+      return null;
     } finally {
       this.status.isSyncing = false;
       this.checkInternalStatus();
     }
-    return null;
+  }
+
+  /**
+   * Direct upload (Background backup)
+   */
+  async uploadOnly(data: AppData): Promise<boolean> {
+    if (!gapiInitialized || !this.status.signedIn) return false;
+    
+    try {
+      const fileId = await this.findSyncFile();
+      if (fileId) {
+        await this.upload(fileId, data);
+        return true;
+      } else {
+        await this.createFile(data);
+        return true;
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  private async findSyncFile(): Promise<string | null> {
+    const response = await gapi.client.drive.files.list({
+      spaces: "appDataFolder",
+      fields: "files(id, name)",
+      q: "name = 'mylovecat_sync.json'",
+    });
+    const files = response.result.files;
+    return files && files.length > 0 ? files[0].id : null;
   }
 
   private async createFile(data: AppData) {
     const boundary = "foo_bar_baz";
     const delimiter = "\r\n--" + boundary + "\r\n";
     const close_delim = "\r\n--" + boundary + "--";
-
-    const metadata = {
-      name: "mylovecat_sync.json",
-      parents: ["appDataFolder"],
-    };
+    const metadata = { name: "mylovecat_sync.json", parents: ["appDataFolder"] };
 
     const multipartRequestBody =
-      delimiter +
-      "Content-Type: application/json\r\n\r\n" +
-      JSON.stringify(metadata) +
-      delimiter +
-      "Content-Type: application/json\r\n\r\n" +
-      JSON.stringify(data) +
+      delimiter + "Content-Type: application/json\r\n\r\n" + JSON.stringify(metadata) +
+      delimiter + "Content-Type: application/json\r\n\r\n" + JSON.stringify(data) +
       close_delim;
 
     return gapi.client.request({
@@ -218,8 +239,8 @@ class GoogleSyncService {
       schemaVersion: 1,
       app: { name: "mylovecat", exportedAt: new Date().toISOString() },
       period: { month: "all", timezone: "UTC" },
-      cats: remote.cats,
-      records: remote.records,
+      cats: remote.cats || [],
+      records: remote.records || [],
     };
     return mergeMonthlyExport(local, remoteAsExport as any);
   }
