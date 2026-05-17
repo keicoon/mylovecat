@@ -19,6 +19,8 @@ import { buildThemeTemplate, normalizeCustomTheme } from "../theme";
 
 type ToastState = { tone: "success" | "warning" | "danger"; message: string } | null;
 
+import { syncService, SyncStatus } from "../syncService";
+
 export function SettingsView({
   data,
   selectedDate,
@@ -44,8 +46,29 @@ export function SettingsView({
 }) {
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [storageText, setStorageText] = useState("계산 전");
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({ signedIn: false, isSyncing: false });
   const editingCat = data.cats.find((cat) => cat.id === editingCatId);
   const exportMonth = monthKey(selectedDate);
+
+  useEffect(() => {
+    syncService.init(setSyncStatus);
+  }, []);
+
+  const handleSync = async () => {
+    if (!syncStatus.signedIn) {
+      await syncService.signIn();
+      return;
+    }
+
+    onToast({ tone: "warning", message: "구글 드라이브와 동기화 중..." });
+    const merged = await syncService.sync(data);
+    if (merged) {
+      onDataChange(() => merged);
+      onToast({ tone: "success", message: "동기화를 완료했어요." });
+    } else {
+      onToast({ tone: "danger", message: "동기화에 실패했어요." });
+    }
+  };
 
   useEffect(() => {
     estimateStorageUsage()
@@ -281,6 +304,31 @@ export function SettingsView({
       </div>
 
       <InstallGuideCard context={installContext} installPromptAvailable={installPromptAvailable} onInstall={onInstall} />
+
+      <div className="panel">
+        <div className="panel-head compact">
+          <h2>클라우드 동기화</h2>
+        </div>
+        <p className="helper-text" style={{ marginBottom: "12px" }}>
+          Google Drive를 통해 여러 기기(모바일, PC) 간에 데이터를 동기화합니다. 데이터는 사용자의 Google Drive에만 안전하게 보관됩니다.
+        </p>
+        <div className="button-stack">
+          <button className={`soft-button ${syncStatus.signedIn ? "is-active" : ""}`} onClick={handleSync} disabled={syncStatus.isSyncing}>
+            <Upload size={18} aria-hidden="true" />
+            {syncStatus.signedIn ? (syncStatus.isSyncing ? "동기화 중..." : "지금 동기화") : "Google 로그인하여 동기화"}
+          </button>
+          {syncStatus.signedIn && (
+            <button className="micro-button" onClick={() => syncService.signOut()}>
+              로그아웃
+            </button>
+          )}
+        </div>
+        {syncStatus.lastSyncedAt && (
+          <p className="helper-text" style={{ marginTop: "8px" }}>
+            마지막 동기화: {new Date(syncStatus.lastSyncedAt).toLocaleString()}
+          </p>
+        )}
+      </div>
 
       <div className="panel">
         <div className="panel-head compact">
