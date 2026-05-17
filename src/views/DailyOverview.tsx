@@ -3,7 +3,7 @@ import type { CatProfile, DailyRecord } from "../types";
 import { coreRecordFieldOrder } from "../types";
 import { CatAvatar } from "../components/CatAvatar";
 import { findRecord, filledCoreCount } from "../storage";
-import { getAttentionItems } from "../logic";
+import { getAttentionItems, calculateStreak } from "../logic";
 
 export function DailyOverview({
   cats,
@@ -24,6 +24,7 @@ export function DailyOverview({
         const record = findRecord(records, cat.id, selectedDate);
         const alerts = record ? getAttentionItems(record) : [];
         const coreCount = record ? filledCoreCount(record.items) : 0;
+        const streak = calculateStreak(records, cat.id);
 
         return (
           <button
@@ -31,7 +32,7 @@ export function DailyOverview({
             key={cat.id}
             onClick={() => onSelectCat(cat.id)}
           >
-            <CatAvatar cat={cat} size="large" />
+            <CatAvatar cat={cat} size="large" streak={streak} />
             <span>
               <strong>{cat.name}</strong>
               <small>

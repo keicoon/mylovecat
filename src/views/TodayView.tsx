@@ -7,6 +7,7 @@ import {
   Image as ImageIcon,
   RotateCcw,
   Save,
+  Lightbulb,
 } from "lucide-react";
 import {
   CatAppetiteIcon,
@@ -66,6 +67,19 @@ const quickCopyFields: RecordField[] = [
   "medicationTaken",
   "foodSnackAmount",
   "condition",
+];
+
+const catTrivia = [
+  "고양이는 하루에 약 12~16시간을 자며 시간을 보냅니다.",
+  "고양이의 코 무늬(비문)는 사람의 지문처럼 모두 다릅니다.",
+  "고양이는 단맛을 느끼는 미각 세포가 없습니다.",
+  "고양이가 가르랑거리는 소리는 뼈의 밀도를 높이고 치유를 돕는 효과가 있습니다.",
+  "고양이는 수직으로 자신의 키보다 6배나 높이 뛸 수 있습니다.",
+  "고양이는 앞발의 발가락이 5개, 뒷발의 발가락은 4개입니다.",
+  "고양이는 약 100가지의 각기 다른 소리를 낼 수 있습니다.",
+  "고양이의 귀는 180도 회전할 수 있으며, 32개의 근육으로 조절됩니다.",
+  "고양이는 무리를 짓지 않고 혼자 사냥하는 동물 중 가장 성공률이 높습니다.",
+  "고양이가 눈을 천천히 깜빡이는 것은 신뢰와 애정의 표현입니다.",
 ];
 
 export function TodayView({
@@ -190,6 +204,13 @@ export function TodayView({
         <div className="completion" style={{ "--progress": `${completion}%` } as CSSProperties}>
           <span>{completion}%</span>
         </div>
+      </div>
+
+      <div className="trivia-card">
+        <div className="trivia-icon">
+          <Lightbulb size={18} />
+        </div>
+        <p>{catTrivia[new Date(selectedDate).getDate() % catTrivia.length]}</p>
       </div>
 
       <div className="quick-actions">

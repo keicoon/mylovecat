@@ -155,3 +155,36 @@ export function getWeeklyHealthSummary(records: DailyRecord[]): string {
 
   return summary;
 }
+
+export function calculateStreak(records: DailyRecord[], catId: string): number {
+  const catRecords = records
+    .filter((r) => r.catId === catId)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  if (catRecords.length === 0) return 0;
+
+  const today = formatDate(new Date());
+  const yesterday = formatDate(new Date(Date.now() - 86400000));
+  
+  // Start checking from the most recent record
+  const hasRecordToday = catRecords[0].date === today;
+  const hasRecordYesterday = catRecords.some(r => r.date === yesterday);
+
+  if (!hasRecordToday && !hasRecordYesterday) return 0;
+
+  let currentStreak = 0;
+  let checkDate = hasRecordToday ? today : yesterday;
+
+  for (const record of catRecords) {
+    if (record.date === checkDate) {
+      currentStreak++;
+      const dateObj = parseDate(checkDate);
+      dateObj.setDate(dateObj.getDate() - 1);
+      checkDate = formatDate(dateObj);
+    } else if (record.date < checkDate) {
+      break;
+    }
+  }
+
+  return currentStreak;
+}

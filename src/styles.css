@@ -1881,9 +1881,72 @@ th {
   .dashboard-grid { grid-template-columns: 1fr; }
 }
 
-.public-table-wrap {
-  overflow: auto;
-  padding: 8px;
+.avatar-container {
+  position: relative;
+  display: inline-flex;
+}
+
+.avatar-decoration {
+  position: absolute;
+  font-size: 24px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  z-index: 1;
+}
+
+.avatar-decoration.crown {
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-5deg);
+}
+
+.avatar-decoration.medal {
+  bottom: -4px;
+  right: -8px;
+  font-size: 28px;
+}
+
+.streak-badge {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--coral);
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+.trivia-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(245, 182, 64, 0.08);
+  border: 1px solid rgba(245, 182, 64, 0.2);
+  padding: 14px 18px;
+  border-radius: 12px;
+  margin-bottom: 18px;
+}
+
+.trivia-icon {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--amber);
+  color: white;
+  border-radius: 50%;
+}
+
+.trivia-card p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1.5;
 }
 
 .public-table {

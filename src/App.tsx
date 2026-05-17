@@ -387,6 +387,7 @@ function TrackerApp() {
       <main className="workspace">
         <TopBar
           cats={data.cats}
+          records={data.records}
           selectedCatId={selectedCatId}
           selectedDate={selectedDate}
           onSelectCat={setSelectedCatId}
