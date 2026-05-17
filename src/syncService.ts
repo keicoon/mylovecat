@@ -149,13 +149,18 @@ class GoogleSyncService {
         return localData;
       }
     } catch (error: any) {
+      console.error("Full Sync Error Object:", error);
+      
       if (error.status === 401) {
         this.status.signedIn = false;
         this.currentAccessToken = null;
         localStorage.removeItem(TOKEN_STORAGE_KEY);
         this.status.error = "인증 세션이 만료되었습니다. 다시 로그인해주세요.";
+      } else if (error.status === 403) {
+        const reason = error.result?.error?.message || "접근 권한이 없습니다.";
+        this.status.error = `구글 드라이브 접근 거부: ${reason} (Google Cloud Console에서 Drive API가 활성화되었는지 확인해주세요.)`;
       } else {
-        this.status.error = "동기화 실패 (네트워크 확인)";
+        this.status.error = `동기화 실패: ${error.result?.error?.message || "네트워크 확인"}`;
       }
       return null;
     } finally {
