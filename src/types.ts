@@ -31,7 +31,7 @@ export interface ImageAsset {
   id: string;
   name: string;
   type: string;
-  dataUrl: string;
+  dataUrl?: string; // Optional: can be loaded lazily from binary storage
   createdAt: string;
 }
 

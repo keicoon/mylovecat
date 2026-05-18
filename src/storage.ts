@@ -73,14 +73,25 @@ export async function saveData(data: AppData) {
 
   try {
     const db = await openDatabase();
+    
+    // Optimization: Strip dataUrl before persisting to main stores to save significant space
+    const persistentCats = data.cats.map(stripImageBinary);
+    const persistentRecords = data.records.map(r => ({
+      ...r,
+      items: {
+        ...r.items,
+        photos: r.items.photos?.map(stripImageBinary)
+      }
+    }));
+
     await idbSet(db, STORE_APP, "app_state", {
-      cats: data.cats,
+      cats: persistentCats,
       settings: data.settings,
     });
 
     const transaction = db.transaction(STORE_RECORDS, "readwrite");
     const store = transaction.objectStore(STORE_RECORDS);
-    for (const record of data.records) {
+    for (const record of persistentRecords) {
       store.put(record, record.id);
     }
     
@@ -94,6 +105,17 @@ export async function saveData(data: AppData) {
   }
 }
 
+function stripImageBinary<T>(obj: T): T {
+  if (!obj || typeof obj !== 'object') return obj;
+  const clone = { ...obj } as any;
+  if ('dataUrl' in clone) delete clone.dataUrl;
+  if ('avatarImage' in clone && clone.avatarImage) {
+    clone.avatarImage = { ...clone.avatarImage };
+    delete clone.avatarImage.dataUrl;
+  }
+  return clone;
+}
+
 async function migrateToGranular(db: IDBDatabase, data: AppData) {
   const tx = db.transaction([STORE_APP, STORE_RECORDS, STORE_IMAGES], "readwrite");
   tx.objectStore(STORE_APP).put({ cats: data.cats, settings: data.settings }, "app_state");
@@ -103,8 +125,9 @@ async function migrateToGranular(db: IDBDatabase, data: AppData) {
   for (const record of data.records) {
     if (record.items.photos) {
       for (const photo of record.items.photos) {
-        if (photo.dataUrl.startsWith("data:")) {
-          const blob = await dataUrlToBlob(photo.dataUrl);
+        const dUrl = photo.dataUrl;
+        if (dUrl?.startsWith("data:")) {
+          const blob = await dataUrlToBlob(dUrl);
           await imageStore.put(blob, photo.id);
         }
       }
@@ -113,9 +136,10 @@ async function migrateToGranular(db: IDBDatabase, data: AppData) {
   }
 
   for (const cat of data.cats) {
-    if (cat.avatarImage?.dataUrl.startsWith("data:")) {
-      const blob = await dataUrlToBlob(cat.avatarImage.dataUrl);
-      await imageStore.put(blob, cat.avatarImage.id);
+    const avatarUrl = cat.avatarImage?.dataUrl;
+    if (avatarUrl?.startsWith("data:")) {
+      const blob = await dataUrlToBlob(avatarUrl);
+      await imageStore.put(blob, cat.avatarImage!.id);
     }
   }
 
@@ -399,8 +423,8 @@ export async function requestPersistentStorage() {
 }
 
 export function readImageAsset(file: File, options?: { maxEdge?: number; quality?: number }): Promise<ImageAsset> {
-  const maxEdge = options?.maxEdge ?? 960;
-  const quality = options?.quality ?? 0.72; // Slightly more aggressive compression
+  const maxEdge = options?.maxEdge ?? 800; // Smaller max edge
+  const quality = options?.quality ?? 0.6; // More aggressive compression
 
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith("image/")) {
@@ -439,7 +463,7 @@ export function readImageAsset(file: File, options?: { maxEdge?: number; quality
           id: imageId,
           name: file.name,
           type: "image/jpeg",
-          dataUrl,
+          dataUrl, // Return with dataUrl for immediate UI update
           createdAt: new Date().toISOString(),
         });
       } catch (error) {

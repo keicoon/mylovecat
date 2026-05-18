@@ -1,6 +1,7 @@
 import React from "react";
 import { Cat } from "lucide-react";
 import type { CatProfile } from "../types";
+import { SmartImage } from "./CommonUI";
 
 export function CatAvatar({
   cat,
@@ -14,7 +15,7 @@ export function CatAvatar({
   return (
     <div className={`avatar-container ${size}`}>
       <span className={`cat-avatar ${size}`} aria-hidden="true">
-        {cat.avatarImage ? <img src={cat.avatarImage.dataUrl} alt="" /> : <Cat size={size === "large" ? 32 : 15} />}
+        {cat.avatarImage ? <SmartImage asset={cat.avatarImage} alt="" /> : <Cat size={size === "large" ? 32 : 15} />}
       </span>
       {size === "large" && streak >= 30 ? (
         <div className="avatar-decoration medal" title="30일 연속 기록 훈장">

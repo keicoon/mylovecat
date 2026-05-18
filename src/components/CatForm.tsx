@@ -5,6 +5,7 @@ import type { CatProfile, CatSex, ImageAsset } from "../types";
 import { readImageAsset } from "../storage";
 import { CatAvatar } from "./CatAvatar";
 import { Segmented } from "./Segmented";
+import { SmartImage } from "./CommonUI";
 
 export function CatForm({
   initial,
@@ -31,7 +32,7 @@ export function CatForm({
 
     try {
       setImageError("");
-      setAvatarImage(await readImageAsset(file, { maxEdge: 420, quality: 0.82 }));
+      setAvatarImage(await readImageAsset(file));
     } catch (error) {
       setImageError(error instanceof Error ? error.message : "대표 이미지를 읽을 수 없어요.");
     }
@@ -80,6 +81,10 @@ export function CatForm({
         </div>
         {imageError ? <p className="form-error">{imageError}</p> : null}
       </div>
+      <label>
+        이름
+        <input value={name} onChange={(event) => setName(event.target.value)} placeholder="예: 루나" />
+      </label>
       <label>
         나이
         <input
@@ -135,7 +140,7 @@ export function ImageGrid({ images, onRemove }: { images: ImageAsset[]; onRemove
     <div className="image-grid">
       {images.map((image) => (
         <figure className="image-thumb" key={image.id}>
-          <img src={image.dataUrl} alt={image.name} />
+          <SmartImage asset={image} alt={image.name} />
           {onRemove ? (
             <button type="button" onClick={() => onRemove(image.id)} aria-label={`${image.name} 제거`}>
               <X size={15} aria-hidden="true" />

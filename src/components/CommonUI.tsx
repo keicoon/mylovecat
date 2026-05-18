@@ -1,5 +1,47 @@
-import React from "react";
-import { Check, CircleAlert } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Check, CircleAlert, Image as ImageIcon } from "lucide-react";
+import { ImageAsset } from "../types";
+import { getImage } from "../storage";
+
+export function SmartImage({ asset, alt = "" }: { asset: ImageAsset; alt?: string }) {
+  const [src, setSrc] = useState<string | undefined>(asset.dataUrl);
+
+  useEffect(() => {
+    if (src) return;
+
+    let active = true;
+    let objectUrl: string | undefined;
+
+    const load = async () => {
+      try {
+        const blob = await getImage(asset.id);
+        if (blob && active) {
+          objectUrl = URL.createObjectURL(blob);
+          setSrc(objectUrl);
+        }
+      } catch (e) {
+        console.error("Failed to load image blob", e);
+      }
+    };
+
+    void load();
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [asset.id, src]);
+
+  if (!src) {
+    return (
+      <div className="skeleton" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <ImageIcon size={16} opacity={0.3} />
+      </div>
+    );
+  }
+
+  return <img src={src} alt={alt} />;
+}
 
 export function Kpi({ label, value, tone }: { label: string; value: string; tone?: "warning" | "danger" | "calm" }) {
   return (
