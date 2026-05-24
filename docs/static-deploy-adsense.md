@@ -25,11 +25,12 @@ npm run check:deploy
 This builds the GitHub Pages artifact and verifies:
 
 - GitHub Pages base path asset references
+- static public page fallbacks such as `/about/` and `/privacy/`
 - PWA manifest scope/start URL
 - service worker scope-relative URLs
 - no deployed source maps
 - no `console.*`/`debugger` statements in deployable text assets
-- AdSense client/slot format and `ads.txt` when AdSense is enabled
+- AdSense client format and static head tags when AdSense is enabled
 
 Recommended hosting options:
 
@@ -81,13 +82,17 @@ VITE_ADSENSE_CLIENT=ca-pub-0000000000000000
 VITE_ADSENSE_SLOT_CONTENT=0000000000
 ```
 
+`VITE_ADSENSE_SLOT_CONTENT` is only needed for explicit display ad units. Site verification and Auto ads only need
+`VITE_ADSENSE_CLIENT`.
+
 Then build and deploy again:
 
 ```bash
 npm run build
 ```
 
-When the variables are empty, no AdSense script is loaded. Public pages show reserved ad placeholders only.
+When `VITE_ADSENSE_CLIENT` is empty, no AdSense script is loaded. Public pages show reserved ad placeholders when no valid
+display ad slot is configured.
 
 ## AdSense Publisher Lock
 
@@ -105,7 +110,7 @@ When `VITE_ADSENSE_CLIENT` is set and does not match `lockedClient`, the product
 
 The production build validates the AdSense client ID when configured.
 
-For AdSense, prefer a custom domain or a GitHub Pages user/organization root site. A project page such as `https://user.github.io/mylovecat/` can host the app, but `ads.txt` verification is tied to the site domain root. Currently, `ads.txt` generation is disabled to avoid confusion in project-page deployments.
+For AdSense, prefer a custom domain or a GitHub Pages user/organization root site. A project page such as `https://user.github.io/mylovecat/` can host the app, but `ads.txt` verification is tied to the site domain root. This repository can publish `ads.txt` at `/mylovecat/ads.txt`; it cannot publish `https://user.github.io/ads.txt` unless it is deployed as the user/organization root site or behind a custom domain.
 
 ## AdSense Review Checklist
 

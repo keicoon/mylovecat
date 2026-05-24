@@ -19,10 +19,12 @@ export function isPublicPath(path: string): path is PublicPath {
 
 function withBase(path: "/" | PublicPath) {
   const basePath = import.meta.env.BASE_URL;
-  if (basePath === "/") return path;
+  const directoryPath = path === "/" ? "/" : `${path}/`;
+
+  if (basePath === "/") return directoryPath;
 
   const cleanBasePath = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
-  return path === "/" ? `${cleanBasePath}/` : `${cleanBasePath}${path}`;
+  return path === "/" ? `${cleanBasePath}/` : `${cleanBasePath}${directoryPath}`;
 }
 
 export default function PublicPages({ path }: { path: string }) {

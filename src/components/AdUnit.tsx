@@ -47,5 +47,6 @@ export function sanitizeAdSenseClient(value: string | undefined) {
 
 export function sanitizeAdSlot(value: string | undefined) {
   const trimmed = value?.trim();
+  if (trimmed === "0000000000" || trimmed === "1234567890") return "";
   return trimmed && /^\d{4,}$/.test(trimmed) ? trimmed : "";
 }

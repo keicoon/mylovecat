@@ -27,6 +27,7 @@ npm run build:pages
 
 - `VITE_BASE_PATH=/mylovecat/`로 Vite 빌드
 - GitHub Pages 새로고침/직접 진입 대응용 `dist/404.html` 생성
+- 공개 콘텐츠 경로(`/about/`, `/guide/`, `/cat-health-log-template/`, `/privacy/`, `/terms/`)용 `index.html` 생성
 - PWA manifest, service worker, 아이콘, 공개 페이지 링크가 `/mylovecat/` 하위 경로에서 동작하도록 구성
 
 커스텀 도메인을 붙일 경우에는 기본 빌드를 사용하면 됩니다.
@@ -138,7 +139,7 @@ AdSense 적용 전 확인:
 - 승인된 AdSense client id를 `deploy.config.json`에 잠금
 - AdSense 사용 시 `ads.txt`가 도메인 루트에서 제공되는지 확인
 
-`ads.txt`는 위조된 광고 인벤토리 판매를 줄이기 위한 공개 선언 파일입니다. 단, GitHub Pages 프로젝트 페이지(`/mylovecat/`)는 도메인 루트가 아니므로 `ads.txt`를 통한 자동 인증이 어렵습니다. 따라서 현재 빌드 과정에서는 `ads.txt` 생성을 제외했으며, 광고 송출 자체는 스크립트 태그를 통해 정상적으로 동작합니다. 운영 단계에서 더 높은 신뢰도가 필요하다면 커스텀 도메인을 붙이는 편이 안전합니다.
+`ads.txt`는 위조된 광고 인벤토리 판매를 줄이기 위한 공개 선언 파일입니다. 단, GitHub Pages 프로젝트 페이지(`/mylovecat/`)는 도메인 루트가 아니므로 `ads.txt`를 통한 자동 인증이 어렵습니다. 이 저장소의 `public/ads.txt`는 `/mylovecat/ads.txt`로 배포되지만, AdSense가 요구하는 `https://keicoon.github.io/ads.txt`는 이 프로젝트 페이지에서 만들 수 없습니다. 운영 단계에서 더 높은 신뢰도가 필요하다면 커스텀 도메인을 붙이거나 사용자/조직 루트 Pages 사이트로 배포하는 편이 안전합니다.
 
 ## 로컬 확인
 

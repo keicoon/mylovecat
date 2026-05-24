@@ -8,11 +8,13 @@ const base = getArgValue("--base") ?? config.githubPagesBasePath ?? "/";
 const client = normalize(process.env.VITE_ADSENSE_CLIENT);
 const slot = normalize(process.env.VITE_ADSENSE_SLOT_CONTENT);
 const lockedClient = normalize(config?.adsense?.lockedClient);
+const publicRoutes = ["about", "guide", "cat-health-log-template", "privacy", "terms"];
 const failures = [];
 
 expectFile("index.html");
 expectFile("app.webmanifest");
 expectFile("sw.js");
+for (const route of publicRoutes) expectFile(path.join(route, "index.html"));
 
 const indexHtml = readText("index.html");
 const manifest = JSON.parse(readText("app.webmanifest"));
@@ -42,8 +44,17 @@ for (const [file, content] of searchable) {
 
 if (client) {
   assert(/^ca-pub-\d{16}$/.test(client), "VITE_ADSENSE_CLIENT format is invalid.");
-  assert(/^\d{4,}$/.test(slot), "VITE_ADSENSE_SLOT_CONTENT format is invalid.");
+  if (slot) assert(/^\d{4,}$/.test(slot), "VITE_ADSENSE_SLOT_CONTENT format is invalid.");
   if (lockedClient) assert(client === lockedClient, `AdSense client mismatch. Expected ${lockedClient}, got ${client}.`);
+  assert(
+    indexHtml.includes(`<meta name="google-adsense-account" content="${client}">`) ||
+      indexHtml.includes(`<meta name="google-adsense-account" content="${client}"`),
+    "index.html is missing google-adsense-account meta tag.",
+  );
+  assert(
+    indexHtml.includes(`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${client}`),
+    "index.html is missing AdSense script in head.",
+  );
 }
 
 if (failures.length) {
