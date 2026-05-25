@@ -1713,6 +1713,72 @@ th {
   margin-top: 24px;
 }
 
+.setup-info-section {
+  margin-top: 32px;
+  display: grid;
+  gap: 24px;
+}
+
+.info-banner {
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+  background: rgba(31, 138, 118, 0.05);
+  border-left: 4px solid var(--green);
+}
+
+.info-banner h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.1rem;
+  color: var(--green);
+}
+
+.info-banner p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.setup-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.feature-item {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--soft-line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.feature-item svg {
+  color: var(--brand);
+}
+
+.feature-item h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.feature-item p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+@media (max-width: 780px) {
+  .setup-features {
+    grid-template-columns: 1fr;
+  }
+}
+
 .ad-inner {
   display: flex;
   align-items: center;

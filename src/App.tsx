@@ -24,6 +24,7 @@ import { syncService, SyncStatus } from "./syncService";
 import { LoadingView, Toast } from "./components/CommonUI";
 import { InstallBanner } from "./components/InstallBanner";
 import { AdUnit } from "./components/AdUnit";
+import { HealthTipCard } from "./components/HealthTipCard";
 
 // Views
 import { TopBar } from "./views/TopBar";
@@ -502,6 +503,7 @@ function TrackerApp() {
             {activeTab === "track" && selectedCat && (
               <div className="track-layout">
                 <TrackView cat={selectedCat} records={selectedRecords} selectedDate={selectedDate} onToast={setToast} />
+                <HealthTipCard />
                 <AdUnit label="추적 페이지 하단 광고" />
               </div>
             )}
@@ -520,7 +522,6 @@ function TrackerApp() {
                   onInstall={openInstallPrompt}
                   syncStatus={syncStatus}
                 />
-                <AdUnit label="설정 페이지 하단 광고" />
               </div>
             )}
           </>

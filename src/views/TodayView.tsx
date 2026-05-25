@@ -31,6 +31,7 @@ import {
 } from "../storage";
 import { getAttentionItems, formatKoreanDate } from "../logic";
 import { AdUnit } from "../components/AdUnit";
+import { HealthTipCard } from "../components/HealthTipCard";
 import { Segmented } from "../components/Segmented";
 import { FieldBlock } from "../components/CommonUI";
 import { ImageGrid } from "../components/CatForm";
@@ -260,6 +261,7 @@ export function TodayView({
         </button>
       </div>
 
+      <HealthTipCard />
       <AdUnit label="메인 기록 페이지 하단 광고" />
     </div>
   );
