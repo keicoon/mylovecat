@@ -148,11 +148,15 @@ export default function App() {
     };
   }, []);
 
+  if (path === "/app") {
+    return <TrackerApp />;
+  }
+
   if (isPublicPath(path)) {
     return <PublicPages path={path} />;
   }
 
-  return <TrackerApp />;
+  return <PublicPages path="/" />;
 }
 
 function TrackerApp() {
@@ -416,7 +420,8 @@ function TrackerApp() {
 
   const changeTab = (tab: TabId) => {
     if (tab === "info") {
-      const infoPath = "/about";
+      const basePath = import.meta.env.BASE_URL;
+      const infoPath = basePath === "/" ? "/" : (basePath.endsWith("/") ? basePath : `${basePath}/`);
       window.history.pushState(null, "", infoPath);
       window.dispatchEvent(new CustomEvent("mylovecat:navigation"));
       return;
@@ -504,7 +509,7 @@ function TrackerApp() {
               <div className="track-layout">
                 <TrackView cat={selectedCat} records={selectedRecords} selectedDate={selectedDate} onToast={setToast} />
                 <HealthTipCard />
-                <AdUnit label="추적 페이지 하단 광고" />
+                {selectedRecords.length > 3 && <AdUnit label="추적 페이지 하단 광고" />}
               </div>
             )}
             {activeTab === "settings" && (

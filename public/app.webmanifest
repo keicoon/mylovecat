@@ -2,7 +2,7 @@
   "name": "MyLoveCat",
   "short_name": "LoveCat",
   "description": "고양이의 하루 컨디션을 빠르게 기록하고 변화 흐름을 추적합니다.",
-  "start_url": "./",
+  "start_url": "./app",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f7f8fb",
@@ -26,13 +26,13 @@
     {
       "name": "오늘 기록",
       "short_name": "기록",
-      "url": "./?tab=today",
+      "url": "./app?tab=today",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "상태 추적",
       "short_name": "추적",
-      "url": "./?tab=track",
+      "url": "./app?tab=track",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
